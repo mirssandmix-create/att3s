@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!-- แอพเวลาทำงาน: ครั้งแรก / เปลี่ยนลิงก์ — วางลิงก์เจ้าของ (มี ?k=) หรือพิมพ์รหัสเจ้าของ -->
+<html lang="th"><head><meta charset="utf-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="เวลาทำงาน 3ส.">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0f12" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<script src="web-core.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#111827;--mu:#6b7280;--ac:#c2410c;--bd:#e5e7eb;--er:#b91c1c;--in:#f9fafb}
+@media (prefers-color-scheme:dark){:root{--bg:#0d0f12;--card:#16191d;--tx:#e5e7eb;--mu:#9ca3af;--ac:#ea580c;--bd:#2a2f36;--er:#fca5a5;--in:#0f1215}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:600 15px/1.6 Prompt,"Noto Sans Thai",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.box{width:100%;max-width:440px;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:24px 20px}
+h1{font-size:22px;font-weight:700;margin:0 0 4px}
+.mu{color:var(--mu);font-size:14px;font-weight:400}
+ol{padding-left:22px;margin:14px 0;color:var(--mu);font-size:14px;font-weight:400}
+ol b{color:var(--tx);font-weight:600}
+textarea{width:100%;min-height:96px;border-radius:14px;border:1px solid var(--bd);background:var(--in);color:var(--tx);font:inherit;padding:12px;resize:vertical}
+button{width:100%;margin-top:14px;border:0;border-radius:14px;padding:14px;font:700 16px Prompt,sans-serif;background:var(--ac);color:#fff}
+button.gh{background:transparent;color:var(--mu);border:1px solid var(--bd);font-weight:600}
+button:disabled{opacity:.6}
+.err{color:var(--er);font-size:14px;margin-top:10px;min-height:1em;white-space:pre-line}
+.note{font-size:13px;color:var(--mu);font-weight:400;margin-top:12px}
+</style></head><body>
+<div class="box">
+  <h1>⏱️ เวลาทำงาน 3ส.</h1>
+  <div class="mu" id="sub">สำหรับเจ้าของ/คนจ่ายเงิน — ใส่ครั้งเดียว ครั้งต่อไปเปิดแอพแล้วใช้ได้เลย</div>
+  <ol>
+    <li>คัดลอก<b>ลิงก์เวลาทำงานของเจ้าของ</b> (ลิงก์ที่ลงท้าย <b>?k=…</b>)</li>
+    <li><b>กดค้าง</b>ในช่องด้านล่าง → <b>วาง</b></li>
+  </ol>
+  <textarea id="t" placeholder="วางลิงก์เจ้าของ (ที่ลงท้าย ?k=…)" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
+  <button id="b" onclick="go()">เริ่มใช้งาน</button>
+  <button id="x" class="gh" style="display:none" onclick="location.replace('app.html')">ยกเลิก กลับไปหน้าเดิม</button>
+  <div class="err" id="e"></div>
+  <div class="note">รหัสเจ้าของเก็บในมือถือเครื่องนี้เท่านั้น (ไม่อยู่ในเว็บ) · ส่งลิงก์เว็บแอพให้คนอื่นได้โดยไม่ติดรหัสไปด้วย</div>
+</div>
+<script>
+"use strict";
+var CB={},N=0;
+window.__apiDone=function(id,txt){var c=CB[id];delete CB[id];if(c)c(txt)};
+function api(path,body,done){var id=++N;CB[id]=function(t){var j=null;try{j=JSON.parse(t)}catch(e){}done(j)};
+ try{ShopAndroid.call(id,path,JSON.stringify(body||{}))}catch(e){delete CB[id];done(null)}}
+/* คอมเจ้าของส่งลิงก์มาทางสาย USB (ลงแอพเวลาทำงาน-เครื่องเจ้าของ.bat) → ตรวจกับเว็บเลย ไม่ต้องวางเอง */
+var pcBusy=false;
+function pc(){
+ if(pcBusy)return;pcBusy=true;
+ var b=document.getElementById('b'),e=document.getElementById('e');
+ b.disabled=true;b.textContent='กำลังรับลิงก์จากคอม…';e.textContent='';
+ api('att/pclink',{},function(j){
+  pcBusy=false;b.disabled=false;b.textContent='เริ่มใช้งาน';
+  if(j&&j.ok&&!j.none){location.replace('app.html');return}
+  if(j&&j.none){if(/[?&]pc=1/.test(location.search))location.replace('app.html');return}
+  e.textContent='⚠ ลิงก์จากคอมใช้ไม่ได้: '+((j&&j.error)||'ติดต่อตัวแอพไม่ได้')+'\nกดลงจากคอมใหม่ หรือวางลิงก์เองในช่องด้านบน';
+ });
+}
+window.appOpen=function(v){if(v==='pclink')pc()};
+try{ShopAndroid.ready()}catch(e){}
+var change=/[?&]change=1/.test(location.search);
+if(change){
+ document.getElementById('sub').textContent='เปลี่ยนลิงก์/รหัสเจ้าของ — ของที่บันทึกไว้ในมือถือยังอยู่ครบ จะส่งต่อด้วยรหัสใหม่';
+ document.getElementById('x').style.display='block';
+}
+window.appBack=function(){if(change){location.replace('app.html');return true}return false};
+function go(){
+ var t=document.getElementById('t').value.trim(),b=document.getElementById('b'),e=document.getElementById('e');
+ if(pcBusy)return;
+ if(!t){e.textContent='⚠ ยังไม่ได้วางลิงก์ / พิมพ์รหัส';return}
+ b.disabled=true;b.textContent='กำลังตรวจกับเว็บ…';e.textContent='';
+ api('att/link',{text:t},function(j){
+  b.disabled=false;b.textContent='เริ่มใช้งาน';
+  if(j&&j.ok){location.replace('app.html');return}
+  e.textContent='⚠ '+((j&&j.error)||'ติดต่อตัวแอพไม่ได้');
+ });
+}
+if(/[?&]pc=1/.test(location.search))pc();
+</script>
+</body></html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<!-- แอพเวลาทำงาน: ฝังหน้ามือถือ (lapp/attend/m.html) หรือหน้าเต็มแบบในคอม (lapp/attend/index.html) แล้วทำหน้าที่แทนตัวโปรแกรมร้าน
+     api(path, body) → ShopAndroid.call (Kotlin เก็บชีต + คิวคำสั่งในเครื่อง ส่งขึ้นเว็บเบื้องหลัง) · ลิงก์ออกนอกแอพ → แอพของมือถือ -->
+<html lang="th"><head><meta charset="utf-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="เวลาทำงาน 3ส.">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0f12" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<script src="web-core.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<style>html,body{margin:0;height:100%;background:#f4f5f7;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block}
+@media (prefers-color-scheme:dark){html,body{background:#0d0f12}}
+body{box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}</style>
+</head><body>
+<iframe id="f" src="lapp/attend/m.html"></iframe>
+<script>
+"use strict";
+const F=document.getElementById('f');
+/* คุยกับตัวแอพ: ตอบกลับทาง __apiDone(รหัส, ข้อความ JSON) · ok:false = โยนข้อผิดพลาด (แบบ api() ของโปรแกรมร้าน) */
+const CB={};let N=0;
+window.__apiDone=(id,txt)=>{const c=CB[id];delete CB[id];if(c)c(txt)};
+window.api=function(path,body){return new Promise((res,rej)=>{
+ const id=++N;
+ CB[id]=txt=>{let j=null;try{j=JSON.parse(txt)}catch(e){}
+  if(!j||typeof j!=='object'){rej(new Error('แอพตอบกลับผิดรูปแบบ'));return}
+  if(j.ok===false){const e=new Error(j.error||'เกิดข้อผิดพลาด');e.data=j;rej(e);return}
+  res(j)};
+ try{ShopAndroid.call(id,String(path),body===undefined?null:JSON.stringify(body))}catch(e){delete CB[id];rej(new Error('ติดต่อตัวแอพไม่ได้'))}
+})};
+window.goSetup=()=>{location.href='setup.html?change=1'};
+const W=()=>F.contentWindow;
+const page=()=>{try{return W().location.pathname}catch(e){return ''}};
+/* หน้าเต็มมีที่แก้ค้าง (ยังไม่กดบันทึก) — ถามก่อนออก แบบที่หน้าเว็บถามเอง */
+const unsaved=w=>{try{
+ if(!/index\.html$/.test(page()))return false;
+ if(typeof w.liveBusy==='function')return !!w.liveBusy();
+ return ['DIRTY','EDIT','DRAFT','AEDIT'].some(k=>Object.values(w[k]||{}).some(v=>Array.isArray(v)?v.length>0:!!v));
+}catch(e){return false}};
+const leaveFull=w=>!unsaved(w)||w.confirm('ยังมีที่แก้ไม่ได้บันทึก จะทิ้งไปไหม?');
+/* ปุ่มย้อนกลับของมือถือ: ให้หน้าในกรอบปิดหน้าต่างบนสุดก่อน · หน้าเต็ม → กลับหน้ามือถือ · true = จัดการแล้ว */
+window.appBack=function(){try{
+ const w=W();
+ if(typeof w.appBackInner==='function'&&w.appBackInner())return true;
+ if(/index\.html$/.test(page())){if(leaveFull(w))w.location.href='lapp/attend/m.html';return true}
+}catch(e){}return false};
+/* ตัวแอพได้ชีตชุดใหม่ / กลับเข้าแอพ → ให้หน้าถามสถานะเลย (ไม่ต้องรอรอบ 3 วิ) */
+window.appChanged=function(){try{const w=W();if(w.LAPP&&w.LAPP.poll)w.LAPP.poll()}catch(e){}};
+/* กดแจ้งเตือน: fail = เปิดรายการส่งไม่ผ่าน · link = หน้าวางลิงก์ใหม่ · pclink = คอมส่งลิงก์เจ้าของมาทางสาย USB → หน้า setup ตรวจกับเว็บเลย */
+window.appOpen=function(v){
+ if(v==='link'){goSetup();return}
+ if(v==='pclink'){try{if(!leaveFull(W()))return}catch(e){}location.href='setup.html?change=1&pc=1';return}
+ try{if(!leaveFull(W()))return}catch(e){}
+ let n=0;const t=setInterval(()=>{n++;let done=false;
+  try{const w=W();if(/index\.html$/.test(page()))w.location.href='lapp/attend/m.html';else if(typeof w.appOpen==='function'){w.appOpen(v);done=true}}catch(e){}
+  if(done||n>40)clearInterval(t)},400)};
+F.addEventListener('load',()=>{const w=W();try{
+ w.open=u=>{try{if(u)ShopAndroid.open(String(new w.URL(u,w.location.href)))}catch(e){}return null};
+ w.document.addEventListener('click',e=>{const a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;
+  let u;try{u=new URL(a.href)}catch(x){return}
+  if(u.host===location.host||!/^(https?|tel|mailto|line|geo):$/.test(u.protocol))return;
+  e.preventDefault();ShopAndroid.open(u.href)},true);
+}catch(e){}try{ShopAndroid.ready()}catch(e){}});
+</script>
+</body></html>

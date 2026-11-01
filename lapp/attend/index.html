@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html>
+<head><script>try{window.ShopAndroid=parent.ShopAndroid}catch(e){}</script><meta name="format-detection" content="telephone=no"><meta name="robots" content="noindex,nofollow"><style>@supports (-webkit-touch-callout:none){body *{cursor:pointer}}</style>
+<base target="_blank">
+<script>/* ต่อกับตัวโปรแกรม ShopPOS (tools/lapp-sync.py) · 20d5253b14 */
+var LAPP_CFG = { app: "attend", worker: "worker.js", badge: "lappSt",
+  writes: ["api"], online: [],
+  isWrite: function (fn, a) { return fn === "api" && ["time.saveRows", "time.addAdv", "time.delAdv", "time.editAdv", "time.closeDay"].indexOf(a && a[0]) >= 0; },
+  label: function (fn, a) { var p = (a && a[1]) || {}; return String(a && a[0]) + (p.date ? " " + p.date : "") + (p.id ? " #" + p.id : ""); },
+  onRebase: function () { if (typeof lappRebase === "function") lappRebase(); } };
+</script>
+<script src="engine-boot.js"></script>
+<script src="../client.js"></script>
+<meta charset="utf-8">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;padding:10px;background:#eef3f8;color:#1a2733;
+     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Sarabun","Prompt",sans-serif}
+.wrap{max-width:1100px;margin:0 auto}
+
+/* โดนฝังใน iframe (เมนูของเว็บซื้อของ) → ทิ้งขอบ ใช้เต็มความกว้าง */
+:root.embed body{padding:0}
+:root.embed .wrap{max-width:none}
+:root.embed .hd{border-radius:0}
+:root.embed .card{border-radius:0}
+
+.hd{background:#0f2942;color:#fff;padding:13px 17px;border-radius:10px 10px 0 0;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.hd b{font-size:16px}
+.hd small{display:block;color:#9fb3c8;font-size:12px;margin-top:3px}
+.badge{font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;white-space:nowrap}
+.badge.edit{background:#27ae60;color:#fff}
+.badge.view{background:#5a6b7d;color:#fff}
+
+.tabs{display:flex;background:#1b3a5c}
+.tabs button{flex:1;background:transparent;color:#9fb3c8;border:0;border-bottom:3px solid transparent;
+             padding:11px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.tabs button.on{color:#fff;border-bottom-color:#4da3ff;background:rgba(255,255,255,.06)}
+
+.bar{background:#dbe7f3;padding:10px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.bar label{font-size:12px;font-weight:700;color:#0f2942}
+input[type=date],input[type=month],select{padding:8px 9px;border:2px solid #1b4d89;border-radius:6px;
+      font:inherit;font-size:14px;font-weight:700;color:#1b4d89;background:#fff;max-width:100%}
+#emp{flex:1;min-width:190px}
+button{padding:8px 13px;border:0;border-radius:6px;font:inherit;font-size:13px;
+       font-weight:700;cursor:pointer;background:#1b4d89;color:#fff}
+button:disabled{background:#b6c3d1;cursor:not-allowed}
+button.gh{background:#fff;color:#1b4d89;border:2px solid #1b4d89}
+button.gh.on{background:#1b4d89;color:#fff}   /* ปุ่มที่เลือกอยู่ (⭐ รายวัน/ช่วงวัน) — เดิมไม่มีสี ไม่รู้ว่าเลือกอันไหน */
+button.sm{padding:6px 10px;font-size:12px}
+button.save{background:#c0392b}
+button.print{background:#0f2942}
+.spacer{flex:1}
+/* ป้าย+ช่องวันที่ อยู่ด้วยกันเสมอ (จอแคบ "ถึง" เคยค้างท้ายแถวบน ช่องตกไปแถวล่าง) */
+.fld{display:inline-flex;align-items:center;gap:7px;max-width:100%}
+/* กล่องของแท็บ ⭐ ให้ลูกข้างในเรียงเหมือนอยู่ในแถบตรง ๆ (ได้ช่องไฟ/ตัดบรรทัดเหมือนแท็บอื่น) */
+#sDayBox,#sMonBox{display:contents}
+
+.card{background:#fff;border-radius:0 0 10px 10px;padding:12px}
+.who{background:#0f2942;color:#fff;padding:12px 15px;border-radius:8px;margin-bottom:11px;
+     display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.who b{font-size:19px}
+.who small{color:#9fb3c8;font-size:12px}
+/* คำอธิบายใต้หัวข้อ ขึ้นบรรทัดใหม่ — เดิมติดท้ายหัวข้อ "ตุลาคม 2569" + "2 เดือน" อ่านเป็น "25692 เดือน" */
+.who b+small{display:block;margin-top:3px}
+.sus{background:#c0392b;padding:4px 9px;border-radius:5px;font-size:11px;font-weight:700}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;
+      background:#f2f6fb;border:1px solid #dde5ee;border-radius:6px;overflow:hidden;margin-bottom:11px}
+/* เส้นคั่นวาดจากเงาของแต่ละช่อง — ช่องว่างท้ายแถว (จอมือถือ) จึงเป็นสีพื้นเดียวกับช่อง ไม่เป็นก้อนเทา */
+.cell{background:#f2f6fb;padding:9px 11px;box-shadow:0 0 0 1px #dde5ee}
+.cell b{display:block;font-size:11px;color:#5a6b7d;font-weight:700}
+.cell span{font-size:15px;font-weight:700}
+.cell.hi{background:#fdedeb}.cell.hi span{color:#c0392b}
+.cell.ok{background:#eaf7ef}.cell.ok span{color:#1b7a43}
+
+.bch{background:#fff7e0;padding:9px;border-radius:6px;font-size:13px;text-align:center;
+     font-weight:700;margin-bottom:11px}
+
+/* แถบยอดเงิน 4 ช่อง แยกสี — ค่าแรง / ทิป / เบิก / คงเหลือ */
+.pay4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:11px}
+.pay4 div{border-radius:6px;padding:9px 6px;text-align:center;color:#fff;
+          -webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pay4 b{display:block;font-size:11.5px;font-weight:700;opacity:.92;margin-bottom:3px}
+.pay4 span{font-size:17px;font-weight:800}
+.pay4 .p1{background:#1b7a43}
+.pay4 .p2{background:#b07d0a}
+.pay4 .p3{background:#c0392b}
+.pay4 .p4{background:#0f5132}
+@media(max-width:560px){ .pay4{grid-template-columns:repeat(2,1fr)} }
+
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+th{background:#0f2942;color:#e8eef5;padding:8px 5px;font-size:11px}
+td{padding:0;text-align:center;border-bottom:1px solid #eef3f8}
+td.pad{padding:7px 5px}
+tbody tr:nth-child(even) td{background:#f8fbfe}
+tbody tr.dirty td{background:#fff8e1}
+tbody tr.open td:first-child{border-left:3px solid #d4a017}
+tbody tr.newday td{border-top:2px solid #0f2942}
+
+/* เลือกคนเพื่อพิมพ์ */
+.pick{background:#f2f6fb;border:1px solid #dde5ee;border-radius:8px;padding:11px;margin-bottom:11px}
+.picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:5px;
+       max-height:290px;overflow:auto;margin:9px 0;padding:3px}
+.picks label{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #dde5ee;
+       border-radius:6px;padding:7px 9px;font-size:13px;cursor:pointer}
+.picks label:hover{background:#eaf2fb}
+.picks input{width:16px;height:16px;accent-color:#1b4d89;flex:none}
+.pperson{margin-bottom:26px;padding-bottom:14px;border-bottom:2px dashed #c3ccd6}
+tfoot td{background:#0f2942;color:#fff;font-weight:700;padding:9px 5px}
+
+td input[type=text]{text-align:left;padding-left:6px}
+td input,td select{width:100%;border:0;background:transparent;font:inherit;font-size:13px;
+      text-align:center;padding:7px 3px;color:inherit}
+td input:focus,td select:focus{outline:2px solid #1b4d89;background:#fff}
+td.ro{color:#5a6b7d}
+.st{border-radius:4px;padding:3px 7px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-block}
+/* หักสาย (ส้ม) / หักเลิกก่อน (ม่วง) — ช่องเวลาที่ทำให้โดนหักขึ้นสีเดียวกับป้าย */
+.fn{border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-block;margin:2px 0 0 4px}
+.fn.l{background:#ffedd5;color:#c2410c;border:1px solid #fdba74}
+.fn.e{background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe}
+td.fl{background:#ffedd5!important;color:#c2410c!important;font-weight:700}
+td.fe{background:#f3e8ff!important;color:#7e22ce!important;font-weight:700}
+.red{color:#c0392b;font-weight:700}
+
+.msg{text-align:center;color:#8a97a3;padding:30px 10px;font-style:italic}
+.note{padding:10px;border-radius:8px;font-size:12.5px;font-weight:700;margin-bottom:10px;border:2px solid}
+.note.warn{background:#fff7e0;border-color:#d4a017;color:#7d5a00}
+.note.err{background:#fdedeb;border-color:#c0392b;color:#c0392b}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:#0f2942;color:#fff;
+       padding:11px 20px;border-radius:24px;font-size:13px;font-weight:700;z-index:99;
+       box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:90%;text-align:center}
+
+
+.pOnly{display:none}
+@media print{
+  body{background:#fff;padding:0;font-size:12px}
+  .noprint,.tabs,.bar,button,.toast,.badge,.note{display:none!important}
+  .pOnly{display:block}
+  .hd{background:#fff;color:#000;border-radius:0;padding:0 0 6px;border-bottom:2px solid #000}
+  .hd small{color:#333}
+  .card{padding:0;border-radius:0}
+  .who{background:#fff;color:#000;border:2px solid #000;padding:9px;margin:8px 0}
+  .who small{color:#333}
+  .grid{border-color:#999}.cell{background:#fff!important;border:1px solid #ddd;box-shadow:none}
+  .cell span{color:#000!important}
+  /* แถบยอดเงินต้องคงสีตอนพิมพ์ ไม่ให้กฎ .cell ข้างบนทำให้ขาว */
+  .pay4 div{color:#fff!important}
+  .pay4 span{color:#fff!important}
+  table{min-width:0;font-size:10.5px}
+  th,tfoot td{background:#e8e8e8!important;color:#000!important;
+              -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .st{border:1px solid #999;color:#000!important;background:#fff!important}
+  .sOnly{display:none!important}
+  .pick{display:none!important}
+  .pperson{border-bottom:0;padding:0;margin:0;break-after:page;page-break-after:always}
+  .pperson:last-child{break-after:auto;page-break-after:auto}
+  td input,td select{-webkit-appearance:none;appearance:none;padding:3px 0}
+  tr{break-inside:avoid}
+  .sign{display:block!important;margin-top:26px;font-size:12px}
+}
+.sign{display:none}
+/* 🖨️ ใบพิมพ์ 1 คน = A4 แผ่นเดียว (31 ต.ค. 2569)
+   เดิมป้ายสถานะซ้อน 2 บรรทัด (มาสาย + สาย −20) + ช่องห่าง → งวด 16 วันล้นไปหน้า 2 (แถวสุดท้าย + ช่องลงชื่อ)
+   ตอนพิมพ์ย่อระยะ/ตัวอักษรลง ให้ทั้งเดือน (31 วัน) ยังลงแผ่นเดียว */
+@page{size:A4;margin:8mm 9mm}
+@media print{
+  body{font-size:11px}
+  .hd{padding-bottom:4px}
+  .hd b{font-size:14px}
+  .who{padding:5px 10px;margin:5px 0}
+  .who b{font-size:15px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(84px,1fr));margin-bottom:5px}
+  .cell{padding:3px 7px}
+  .cell b{font-size:9.5px}
+  .cell span{font-size:13px}
+  .pay4{gap:4px;margin-bottom:5px}
+  .pay4 div{padding:4px}
+  .pay4 b{font-size:10px;margin-bottom:0}
+  .pay4 span{font-size:15px}
+  table{font-size:11px;line-height:1.3}
+  th{padding:3px 5px;font-size:10px;width:auto!important;min-width:0!important}   /* กว้างตามของในช่อง: หมายเหตุยาวได้ช่องกว้างขึ้น ไม่ต้องตัดหลายบรรทัด */
+  td.pad{padding:2px 5px}
+  tfoot td{padding:3px 4px}
+  td.pad .st,td.pad .fn{padding:0 5px;font-size:10px;line-height:1.45}
+  td.pad .fn{margin:0 0 0 3px}
+  td.pad:has(>.st){white-space:nowrap}   /* มาสาย + สาย −20 + เลิกก่อน อยู่บรรทัดเดียว (เดิมซ้อนลงมา แถวสูงเท่าตัว) */
+  .advsum{font-size:10px;padding:0 5px}
+  .dnote{font-size:10px;line-height:1.25}
+  .sign{margin-top:14px;break-before:avoid}
+}
+
+/* ═══ [v10] แถวเบิก / ปุ่มแก้ / ปิดยอด ═══ */
+td.nm{text-align:left;padding:6px 8px;font-weight:700}
+.advsum{display:inline-block;margin-left:6px;background:#fdecea;color:#c0392b;font-size:11px;font-weight:700;border-radius:20px;padding:1px 7px}
+.dnote{display:block;font-weight:400;font-size:11.5px;color:#5a6b7d;margin-top:1px}
+td.act{white-space:nowrap;padding:3px 6px}
+.ib{width:28px;height:28px;border-radius:50%;padding:0;font-size:13px;line-height:1;background:#eef3f8;color:#1b4d89;margin:0 1px;vertical-align:middle}
+.ib.on{background:#1b4d89;color:#fff}
+.ib.add{background:#fdecea;color:#c0392b;font-size:18px;font-weight:800}
+.ib.add:hover{background:#c0392b;color:#fff}
+tbody tr.sub td{background:#fffafa!important;padding:3px 8px;border-bottom:1px dashed #f0d6d2;text-align:left}
+tbody tr.sub.nt td{background:#f5f9fd!important;border-bottom-color:#d6e2ee}
+tbody tr.editing td{background:#eef6ff!important}
+.al{display:flex;align-items:center;gap:12px;font-size:12.5px}
+.al .m{color:#c0392b;font-weight:800;min-width:60px}.al .x{color:#5a6b7d}.al .sp{flex:1}
+.al .del{background:none;color:#a7b3be;padding:0 4px;font-size:14px}
+.al .del:hover{color:#1d5a92}
+tbody tr.sub.busy td{opacity:.55}
+.af.ed{background:#fff7e6;border-radius:6px;padding:3px}
+.al .th{width:28px;height:28px;object-fit:cover;border-radius:5px;cursor:zoom-in;border:1px solid #f0d6d2}
+.af{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.af input{font:inherit;font-size:13px;border:1px solid #e8d3d0;border-radius:6px;padding:4px 7px;height:30px;background:#fff;min-width:0;text-align:left}
+.af .amt{width:84px;text-align:right;font-weight:700;color:#c0392b}.af .tm{width:104px}.af .py{width:100px}.af .nt{flex:1;min-width:120px}
+.af .cam{border:1px dashed #e0b9b4;background:#fff;border-radius:6px;height:30px;padding:0 9px;cursor:pointer;font-size:12.5px;color:#c0392b;display:inline-flex;align-items:center;gap:4px;font-weight:700}
+.af .cam img{width:22px;height:22px;object-fit:cover;border-radius:4px}
+.af .ok{height:30px;padding:0 12px;background:#0f2942}
+.af .cx{background:none;color:#a7b3be;padding:0 4px;font-size:15px}
+.nf{display:flex;gap:5px}.nf input{flex:1;font:inherit;font-size:13px;border:1px solid #cfdbe7;border-radius:6px;padding:4px 8px;height:30px;text-align:left}
+.cbtn{background:#f5b041;color:#1b2733;border-radius:20px;padding:7px 15px}
+.cbtn:hover{background:#f8c471}
+.cst{font-size:12px;font-weight:700;border-radius:20px;padding:5px 12px;white-space:nowrap}
+.cst.wait{background:rgba(255,255,255,.14);color:#dce6f0}.cst.done{background:#1b7a43;color:#fff}.cst.run{background:#b07d0a;color:#fff}
+#zm{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:100}
+#zm img{max-width:92vw;max-height:88vh;border-radius:8px}
+.pcell{display:none}
+/* ใบพิมพ์หลายคน: ช่อง 📒 เบิก ขึ้นบนจอด้วย — เดิมโชว์แค่ตอนพิมพ์ ตรวจบนจอแล้วเหมือนเงินเบิกหายไป (31 ต.ค. 2569) */
+#sheets .pcell{display:table-cell}
+@media print{ .pcell{display:table-cell!important} tr.sub,td.act,th.act{display:none!important} }
+@media(max-width:600px){
+  tr.sub td>div{position:sticky;left:6px;max-width:calc(100vw - 52px)}
+  .af .amt{width:80px}.af .tm{width:100px}.af .py{flex:1;min-width:90px}.af .nt{flex-basis:100%}
+}
+/* 📷 กล้องคอม (รูปเบิกเงิน) — คอมกดช่องรูปแล้วได้แค่ "เลือกไฟล์" (capture ใช้ได้แค่มือถือ) → เปิดกล้องในหน้าเว็บ */
+.camBox{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:12px}
+.camIn{background:#fff;color:#1a2733;border-radius:12px;padding:12px;width:min(560px,100%);box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.camHd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.camHd b{font-size:15px}
+.camHd span{flex:1;font-size:12px;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.camHd button{border:0;background:#eee;color:#333;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px}
+#camVid{width:100%;max-height:60vh;background:#111;border-radius:8px;display:block}
+.camErr{color:#c0392b;font-weight:700;font-size:13px;margin:6px 0 0;min-height:1em}
+.camBtns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.camBtns button{flex:1;min-width:110px;height:40px;border-radius:8px;border:1px solid #ddd;background:#f7f7f7;color:#1a2733;font-weight:700;cursor:pointer;font-size:14px}
+.camBtns .camGo{background:#c0392b;color:#fff;border-color:#c0392b}
+.camBtns button:disabled{opacity:.5;cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd">
+    <div>
+      <b>⏱️ ระบบเวลาทำงาน — ร้าน 3ส. สุขเจริญ</b>
+      <small id="sub">กำลังโหลด...</small>
+    </div>
+    <span class="badge" id="mode"></span>
+  </div>
+
+  <div class="tabs noprint">
+    <button id="tabD" class="on">📅 ดูรายวัน</button>
+    <button id="tabM">📜 ประวัติการทำงาน</button>
+    <button id="tabP">👤 ดูรายบุคคล</button>
+    <button id="tabS" style="display:none">⭐ คนพิเศษ</button>
+  </div>
+
+  <!-- ── รายคน ── -->
+  <div id="barP" class="bar noprint" style="display:none">
+    <select id="emp"><option>⏳ โหลดรายชื่อ...</option></select>
+    <span class="fld"><label>จาก</label><input type="date" id="pFrom"></span>
+    <span class="fld"><label>ถึง</label><input type="date" id="pTo"></span>
+    <button class="gh sm" id="pNow">งวดนี้</button>
+    <button class="gh sm" id="pPrev">งวดที่แล้ว</button>
+    <button class="gh sm" id="pMon">เดือนนี้</button>
+    <span class="spacer"></span>
+    <button class="gh sm" id="multi">🖨️ พิมพ์หลายคน</button>
+    <button class="print" id="print">🖨️ พิมพ์</button>
+    <button class="save" id="save" disabled>💾 บันทึก (0)</button>
+  </div>
+
+  <!-- ── 📜 ประวัติการทำงาน (เลือกช่วงวันที่เอง) ── -->
+  <div id="barM" class="bar noprint" style="display:none">
+    <span class="fld"><label>ตั้งแต่</label><input type="date" id="mFrom"></span>
+    <span class="fld"><label>ถึง</label><input type="date" id="mTo"></span>
+    <button class="gh sm" id="mNow">งวดนี้</button>
+    <button class="gh sm" id="mPrev">งวดที่แล้ว</button>
+    <button class="gh sm" id="mMon">เดือนนี้</button>
+    <button class="gh sm" id="m7">7 วันล่าสุด</button>
+    <span class="spacer"></span>
+    <button class="save" id="save3" disabled>💾 บันทึก (0)</button>
+  </div>
+
+  <!-- ── รายวัน: วันล่าสุดเท่านั้น (ย้อนดูวันอื่นที่ 📜 ประวัติการทำงาน) ── -->
+  <div id="barD" class="bar noprint">
+    <span style="font-size:12.5px;font-weight:700;color:#0f2942">📅 วันล่าสุด · ดูวันอื่นที่แท็บ 📜 ประวัติการทำงาน</span>
+    <span class="spacer"></span>
+    <button class="save" id="save2" disabled>💾 บันทึก (0)</button>
+  </div>
+
+  <!-- ── ⭐ คนพิเศษ — มีทั้งแบบรายวันและแบบช่วงวัน สลับด้วยปุ่มซ้ายมือ ── -->
+  <div id="barS" class="bar noprint" style="display:none">
+    <button class="gh sm on" id="sModeD">📅 รายวัน</button>
+    <button class="gh sm" id="sModeM">📜 ประวัติ</button>
+    <span style="width:10px"></span>
+
+    <span id="sDayBox"><span style="font-size:12.5px;font-weight:700;color:#0f2942">วันล่าสุด</span></span>
+
+    <span id="sMonBox" style="display:none">
+      <span class="fld"><label>ตั้งแต่</label><input type="date" id="sFrom"></span>
+      <span class="fld"><label>ถึง</label><input type="date" id="sTo"></span>
+      <button class="gh sm" id="sNow">งวดนี้</button>
+    </span>
+
+    <span class="spacer"></span>
+    <button class="print" id="sPrint">🖨️ พิมพ์</button>
+    <button class="save" id="save4" disabled>💾 บันทึก (0)</button>
+  </div>
+
+  <div class="card" id="body"><div class="msg">⏳ กำลังโหลด...</div></div>
+</div>
+<div id="zm" onclick="this.style.display='none'"><img id="zmi" alt=""></div>
+<div id="camBox" class="camBox" role="dialog" aria-label="ถ่ายรูป">
+  <div class="camIn">
+    <div class="camHd"><b>📷 ถ่ายรูป</b><span id="camName"></span><button type="button" id="camX" title="ปิด (Esc)">✕</button></div>
+    <video id="camVid" autoplay playsinline muted></video>
+    <p id="camErr" class="camErr"></p>
+    <div class="camBtns">
+      <button type="button" id="camSnap" class="camGo">📸 ถ่าย</button>
+      <button type="button" id="camSw">🔄 เปลี่ยนกล้อง</button>
+      <button type="button" id="camFile">📁 เลือกไฟล์แทน</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var MODE="edit", KEY="local";   /* ในโปรแกรมร้าน = โหมดเจ้าของ (คำสั่งที่ส่งขึ้นเว็บใช้รหัสจริงของโปรแกรม) */
+/* true ชั่วคราวเฉพาะตอนสร้างตารางในใบพิมพ์ — cols() กับ cellHtml() อ่านค่านี้
+   เพื่อให้ใบพิมพ์ต่างจากตารางบนจอ โดยไม่ต้องทำ cols() ซ้ำอีกชุด */
+var PRINTING=false;
+
+// อยู่ใน iframe ไหม — เข้าถึง window.top ไม่ได้ก็ถือว่าใช่
+try{ if(window.self!==window.top) document.documentElement.classList.add("embed"); }
+catch(e){ document.documentElement.classList.add("embed"); }
+var BOOT=null, VIEW="day", DATA=null, DIRTY={};
+/* [v10] สถานะบนจอ: EDIT = แถวที่กด ✏️ อยู่ · DRAFT = ช่องเบิกที่กด + แล้วยังไม่บันทึก · NOTEOPEN = แถวที่เปิดช่องหมายเหตุ
+   PAINT = วาดหน้าเดิมใหม่โดยไม่ทิ้งค่าที่แก้ค้างไว้ */
+var EDIT={}, DRAFT={}, NOTEOPEN={}, AEDIT={}, PAINT=null, PRELOAD=null;
+function resetUi(){ EDIT={}; DRAFT={}; NOTEOPEN={}; AEDIT={}; }
+
+function el(i){return document.getElementById(i);}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function money(n){return Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+/* ตัวเลขทั่วไป — ใส่ลูกน้ำหลักพัน ทศนิยมเท่าที่มีจริง (ไม่บังคับ .00 แบบ money)
+   ใช้ที่ cellHtml กับคอลัมน์ t:"num" ที่ไม่ได้ตั้ง money:true → 📒 เบิก และ 🎁 ทิป
+   [FIX] เดิมเรียก nf() โดยไม่มีฟังก์ชันนี้อยู่จริง — พอกด "สร้างใบพิมพ์" จะพัง
+   "nf is not defined" ทั้งหน้า เพราะทุกแถวที่มีคอลัมน์เบิก/ทิป วิ่งผ่านบรรทัดนี้ */
+function nf(n){
+  if(n===null||n===undefined||n==="") return "";
+  var x=Number(n);
+  return isNaN(x) ? String(n) : x.toLocaleString("en-US",{maximumFractionDigits:2});
+}
+function uuid(){return "r"+Date.now()+"-"+Math.random().toString(36).slice(2,9);}
+function thDate(s){var p=String(s).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:s;}
+/* ชื่อวันภาษาไทยจาก "yyyy-MM-dd"
+   สร้าง Date จากตัวเลข y/m/d ตรง ๆ (ไม่ผ่าน new Date("2026-09-16") ที่ถูกอ่านเป็น UTC
+   แล้วเลื่อนเป็นวันก่อนหน้าในโซนเวลาไทย) */
+var TH_DOW=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+function thDow(s){
+  var p=String(s).split("-");
+  if(p.length!==3) return "";
+  var d=new Date(Number(p[0]),Number(p[1])-1,Number(p[2]));
+  return isNaN(d.getTime())?"":TH_DOW[d.getDay()];
+}
+
+var STC=[["ลืมสแกน","#ffe5d0","#7d3c00"],["พักงาน","#e2e3e5","#383d41"],
+         ["มาสาย","#fff3cd","#856404"],["ไม่มา","#f8d7da","#721c24"],
+         ["ปกติ","#d4edda","#155724"],["ป่วย","#cce5ff","#004085"],
+         ["วันหยุด","#cce5ff","#004085"],["ลา","#cce5ff","#004085"]];
+function stCol(s){for(var i=0;i<STC.length;i++) if(String(s).indexOf(STC[i][0])>=0)
+  return [STC[i][1],STC[i][2]]; return ["#f1f3f5","#495057"];}
+
+function toast(m,ms){var t=document.createElement("div");t.className="toast";t.textContent=m;
+  document.body.appendChild(t);setTimeout(function(){t.remove();},ms||2800);}
+
+function call(a,p){return new Promise(function(res,rej){
+  google.script.run
+    .withSuccessHandler(function(r){ r&&r.ok ? res(r.data) : rej(new Error(r?r.error:"ไม่มีคำตอบ")); })
+    .withFailureHandler(rej).api(a,p||{},KEY);});}
+
+// ── เริ่ม ──
+el("mode").textContent = MODE==="edit" ? "✏️ โหมดแก้ไข" : "👁️ ดูอย่างเดียว";
+el("mode").className   = "badge "+(MODE==="edit"?"edit":"view");
+
+call("time.bootstrap",{withDay:true}).then(function(b){
+  BOOT=b; PRELOAD=b.day||null;   // 🚀 วันล่าสุดมากับรอบแรกเลย ไม่ต้องเรียกซ้ำ
+  el("pFrom").value=b.period.from; el("pTo").value=b.period.to;
+  el("mFrom").value=b.period.from; el("mTo").value=b.period.to;
+  // ⭐ แท็บคนพิเศษใช้ช่องของตัวเอง ตั้งค่าเริ่มต้นเหมือนอีกสองแท็บ
+  el("sFrom").value=b.period.from; el("sTo").value=b.period.to;
+  el("sub").textContent="พนักงาน "+b.employees.length+" คน";
+  if(!b.canMonth) el("tabM").style.display="none";
+  if(!b.canDay)   el("tabD").style.display="none";
+  if(!b.canMonth && !b.canDay) document.querySelector(".tabs").style.display="none";
+  setTab(b.canDay ? "day" : "person");        // ลูกน้องไม่มีสิทธิ์ดูรายวัน → เด้งไปรายบุคคล
+  el("emp").innerHTML='<option value="">— เลือกพนักงาน —</option>'+b.employees.map(function(e){
+    return '<option value="'+esc(e.id)+'">'+esc(e.id)+' — '+esc(e.name)+'</option>';}).join("");
+}).catch(fail);
+
+function fail(e){ el("body").innerHTML='<div class="note err">❌ '+esc(e.message)+'</div>'; }
+
+// ── สลับแท็บ ──
+el("tabP").onclick=function(){ guard(function(){ setTab("person"); }); };
+el("tabM").onclick=function(){ guard(function(){ setTab("month");  }); };
+el("tabD").onclick=function(){ guard(function(){ setTab("day");    }); };
+el("tabS").onclick=function(){ guard(function(){ setTab("special");}); };
+function setTab(v){
+  VIEW=v;
+  el("tabP").className=v==="person"?"on":"";
+  el("tabM").className=v==="month" ?"on":"";
+  el("tabD").className=v==="day"   ?"on":"";
+  el("tabS").className=v==="special"?"on":"";
+  el("barP").style.display=v==="person"?"":"none";
+  el("barM").style.display=v==="month" ?"":"none";
+  el("barD").style.display=v==="day"   ?"":"none";
+  el("barS").style.display=v==="special"?"":"none";
+  if(v==="person") el("emp").value ? loadPerson()
+                   : (el("body").innerHTML='<div class="msg">👆 เลือกพนักงานด้านบน</div>');
+  else if(v==="month")   loadMonth();
+  else if(v==="special") loadSpecial();
+  else loadDay();
+}
+
+/* ═══ ⭐ คนพิเศษ ═══
+   ใช้ตัววาดตารางชุดเดียวกับหน้าปกติเป๊ะ ๆ ต่างกันแค่ส่ง scope:"special" ไปให้เซิร์ฟเวอร์
+   ฝั่งเซิร์ฟเวอร์กรองด้วย SPECIAL_IDS ใน รหัส.gs — ยอดรวมจึงไม่ปนกับคนงานธรรมดา */
+var SMODE="day";                       // "day" = รายวัน | "month" = ช่วงวัน
+function setSMode(m){
+  SMODE=m;
+  el("sModeD").className="gh sm"+(m==="day"  ?" on":"");
+  el("sModeM").className="gh sm"+(m==="month"?" on":"");
+  el("sDayBox").style.display=m==="day"  ?"":"none";
+  el("sMonBox").style.display=m==="month"?"":"none";
+  loadSpecial();
+}
+el("sModeD").onclick=function(){ guard(function(){ setSMode("day");   }); };
+el("sModeM").onclick=function(){ guard(function(){ setSMode("month"); }); };
+["sFrom","sTo"].forEach(function(i){ el(i).onchange=function(){ guard(loadSpecial); }; });
+el("sNow").onclick =function(){ guard(function(){
+  el("sFrom").value=BOOT.period.from; el("sTo").value=BOOT.period.to; loadSpecial(); }); };
+el("sPrint").onclick=function(){ window.print(); };
+// วันที่แบบ yyyy-mm-dd ตามเวลาเครื่อง — toISOString() เป็น UTC ทำให้ "พรุ่งนี้" ไม่ขยับ "เมื่อวาน" ถอย 2 วัน (UTC+7)
+function ymdLocal(d){ return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+function loadSpecial(){
+  if(!(BOOT.special||[]).length){
+    el("body").innerHTML=
+      '<div class="note warn">⭐ ยังไม่ได้ตั้งรหัสคนพิเศษ<br><br>'+
+      'เปิดไฟล์ <b>รหัส.gs</b> แล้วใส่รหัสลงในบรรทัด <b>SPECIAL_IDS</b> เช่น<br>'+
+      '<code style="display:inline-block;margin-top:6px;background:#fff;padding:6px 10px;'+
+      'border-radius:5px;border:1px solid #d4a017">var SPECIAL_IDS = ["56", "69", "52"];</code>'+
+      '<br><br>แล้ว Deploy เป็น <b>New version</b> คนในลิสต์จะย้ายมาอยู่แท็บนี้ทันที '+
+      'และหายไปจากแท็บ ดูรายวัน / ดูราย 2 เดือน</div>';
+    return;
+  }
+  el("body").innerHTML='<div class="msg">⏳ กำลังโหลด...</div>';
+  if(SMODE==="month")
+    call("time.getRange",{from:el("sFrom").value,to:el("sTo").value,scope:"special"})
+      .then(renderMonth).catch(fail);
+  else
+    call("time.getDay",{date:"latest",scope:"special"})
+      .then(renderDay).catch(fail);
+}
+
+// ── ปุ่มรายคน ──
+["emp","pFrom","pTo"].forEach(function(i){ el(i).onchange=function(){ guard(loadPerson); }; });
+el("pNow").onclick =function(){ guard(function(){ setRange(BOOT.period.from,BOOT.period.to); }); };
+el("pPrev").onclick=function(){ guard(prevPeriod); };
+el("pMon").onclick =function(){ guard(thisMonth); };
+el("print").onclick=function(){ window.print(); };
+el("multi").onclick=function(){ guard(openMulti); };
+el("save").onclick=save; el("save2").onclick=save;
+
+function setRange(f,t){ el("pFrom").value=f; el("pTo").value=t; loadPerson(); }
+function prevPeriod(){
+  var f=new Date(BOOT.period.from+"T00:00:00"); f.setDate(f.getDate()-1);
+  var y=f.getFullYear(), m=f.getMonth(), d=f.getDate();
+  var last=new Date(y,m+1,0).getDate();
+  var iso=function(dd){return new Date(Date.UTC(y,m,dd)).toISOString().slice(0,10);};
+  setRange(d<=15?iso(1):iso(16), d<=15?iso(15):iso(last));
+}
+function thisMonth(){
+  var n=new Date(), y=n.getFullYear(), m=n.getMonth();
+  var iso=function(dd){return new Date(Date.UTC(y,m,dd)).toISOString().slice(0,10);};
+  setRange(iso(1), iso(new Date(y,m+1,0).getDate()));
+}
+
+// ── ปุ่มรายเดือน ──
+["mFrom","mTo"].forEach(function(i){ el(i).onchange=function(){ guard(loadMonth); }; });
+function setM(f,t){ el("mFrom").value=f; el("mTo").value=t; loadMonth(); }
+el("mNow").onclick =function(){ guard(function(){ setM(BOOT.period.from,BOOT.period.to); }); };
+el("mPrev").onclick=function(){ guard(function(){
+  var f=new Date(BOOT.period.from+"T00:00:00"); f.setDate(f.getDate()-1);
+  var y=f.getFullYear(), m=f.getMonth(), d=f.getDate(), last=new Date(y,m+1,0).getDate();
+  var iso=function(dd){return ymdLocal(new Date(y,m,dd));};
+  setM(d<=15?iso(1):iso(16), d<=15?iso(15):iso(last)); }); };
+el("mMon").onclick =function(){ guard(function(){
+  var t=BOOT.today, y=+t.slice(0,4), m=+t.slice(5,7)-1;
+  setM(ymdLocal(new Date(y,m,1)), ymdLocal(new Date(y,m+1,0))); }); };
+el("m7").onclick   =function(){ guard(function(){
+  var d=new Date(BOOT.today+"T00:00:00"); d.setDate(d.getDate()-6); setM(ymdLocal(d), BOOT.today); }); };
+el("save3").onclick=save; el("save4").onclick=save;
+
+function ymAdd(ym,n){
+  var p=ym.split("-"), d=new Date(+p[0],+p[1]-1+n,1);
+  return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2);
+}
+
+
+// ── ปุ่มรายวัน ──
+
+
+function guard(fn){
+  if(Object.keys(DIRTY).length && !confirm("ยังมีที่แก้ไม่ได้บันทึก จะทิ้งไปไหม?")) return;
+  DIRTY={}; resetUi(); refresh(); fn();
+}
+
+// ═══ โหลด ═══
+function loadPerson(){
+  var id=el("emp").value;
+  if(!id){ el("body").innerHTML='<div class="msg">👆 เลือกพนักงานด้านบน</div>'; return; }
+  el("body").innerHTML='<div class="msg">⏳ กำลังโหลด...</div>';
+  call("time.getPerson",{id:id,from:el("pFrom").value,to:el("pTo").value})
+    .then(renderPerson).catch(fail);
+}
+function loadDay(){
+  if(PRELOAD){ var p=PRELOAD; PRELOAD=null; renderDay(p); return; }
+  el("body").innerHTML='<div class="msg">⏳ กำลังโหลด...</div>';
+  call("time.getDay",{date:"latest"}).then(renderDay).catch(fail);
+}
+
+// ═══ 🖨️ พิมพ์หลายคน ═══
+function openMulti(){
+  var list=BOOT.employees.map(function(e){
+    return '<label><input type="checkbox" class="pk" value="'+esc(e.id)+'" checked>'+
+           esc(e.id)+' — '+esc(e.name)+'</label>';}).join("");
+  el("body").innerHTML=
+    '<div class="pick noprint"><b style="font-size:14px">🖨️ เลือกคนที่จะพิมพ์</b>'+
+    '<div style="font-size:12px;color:#5a6b7d;margin-top:3px">ช่วงวันที่ '+
+      thDate(el("pFrom").value)+' – '+thDate(el("pTo").value)+
+      ' (แก้ที่แถบด้านบนได้)</div>'+
+    '<div class="picks">'+list+'</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      '<button class="gh sm" id="pkAll">✅ เลือกทั้งหมด</button>'+
+      '<button class="gh sm" id="pkNone">⬜ ล้างทั้งหมด</button>'+
+      '<span class="spacer"></span>'+
+      '<button class="gh sm" id="pkBack">← กลับ</button>'+
+      '<button class="print" id="pkGo">🖨️ สร้างใบพิมพ์ (0)</button>'+
+    '</div></div><div id="sheets"></div>';
+
+  var boxes=[].slice.call(document.querySelectorAll(".pk"));
+  function count(){
+    var n=boxes.filter(function(b){return b.checked;}).length;
+    el("pkGo").textContent="🖨️ สร้างใบพิมพ์ ("+n+")";
+    el("pkGo").disabled=(n===0);
+  }
+  boxes.forEach(function(b){ b.onchange=count; });
+  el("pkAll").onclick =function(){ boxes.forEach(function(b){b.checked=true;});  count(); };
+  el("pkNone").onclick=function(){ boxes.forEach(function(b){b.checked=false;}); count(); };
+  el("pkBack").onclick=function(){ setTab("person"); };
+  el("pkGo").onclick  =function(){
+    var ids=boxes.filter(function(b){return b.checked;}).map(function(b){return b.value;});
+    el("sheets").innerHTML='<div class="msg">⏳ กำลังดึงข้อมูล '+ids.length+' คน...</div>';
+    call("time.getPeople",{ids:ids,from:el("pFrom").value,to:el("pTo").value})
+      .then(renderSheets).catch(function(e){
+        el("sheets").innerHTML='<div class="note err">❌ '+esc(e.message)+'</div>'; });
+  };
+  count();
+}
+
+// วาดใบของทุกคนต่อกัน — พิมพ์ออกมาคนละหน้า
+function renderSheets(d){
+  DATA={rows:[]};                                   // โหมดพิมพ์ = อ่านอย่างเดียว
+  var out=d.people.map(function(P){
+    DATA.rows=P.rows;
+    var s=P.summary, e=P.emp;
+    var h='<div class="pperson"><div class="who"><div><b>'+esc(e.name)+'</b>'+
+      '<small>รหัส '+esc(e.id)+' · ค่าจ้างราย'+esc(e.payType)+
+      (e.branch?' · ประจำ '+esc(e.branch):'')+'</small></div>'+
+      (e.special?'<span class="sus">'+esc(e.special)+'</span>':'')+
+      '<div style="text-align:right"><small>ช่วงวันที่</small><br><b style="font-size:14px">'+
+      thDate(P.from)+' – '+thDate(P.to)+'</b></div></div>';
+    // แถวบน = จำนวนวัน/ชั่วโมง/หนี้  ส่วนเรื่องเงินย้ายไปแถบสี 4 ช่องด้านล่าง
+    h+='<div class="grid">'+
+      c("🗓️ วันทำงาน",s.work+" วัน")+c("⏱️ ชั่วโมงรวม",s.hrs+" ชม.")+
+      c("❌ ขาดงาน",s.absent+" วัน")+c("🟡 มาสาย",s.late+" ครั้ง")+fineCard(s)+
+      c("🏠 ลา/พักงาน",s.leave+" วัน")+
+      c("🔴 หนี้ยกมา",money(s.debt),"hi")+c("➖ ติดทั้งหมด",money(s.owe),"hi")+'</div>';
+    h+=pay4Box(s,P.hidePay);   // 💵 ยอดเงินช่วงนี้ — แยกสีให้อ่านง่ายตอนจ่ายเงิน
+    h+=tablePrint(P.rows);
+    h+='<div class="sign">ลงชื่อผู้รับเงิน ..................................................'+
+       '&nbsp;&nbsp;&nbsp;&nbsp; วันที่ ................................</div></div>';
+    return h;
+  }).join("");
+  DATA={rows:[]};
+  el("sheets").innerHTML='<div class="note warn noprint">📄 ได้ '+d.people.length+
+    ' ใบ — ตรวจแล้วกดปุ่มพิมพ์</div>'+
+    '<div class="noprint" style="margin-bottom:10px"><button class="print" onclick="window.print()">🖨️ พิมพ์ '+
+    d.people.length+' ใบ</button></div>'+out;
+}
+
+// ตารางโหมดพิมพ์ — อ่านอย่างเดียว ไม่มีช่องกรอก
+function tablePrint(rows){
+  var save=DATA, saveMode=MODE;
+  DATA={rows:rows}; MODE="view"; PRINTING=true;   // ใบพิมพ์: ซ่อนสาขา โชว์ทิป ใส่ชื่อวัน
+  var html;
+  try{ html=table(rows.map(function(_,i){return i;}),"date"); }
+  finally{ DATA=save; MODE=saveMode; PRINTING=false; }
+  return html;
+}
+
+function loadMonth(){
+  el("body").innerHTML='<div class="msg">⏳ กำลังโหลดประวัติ...</div>';
+  call("time.getRange",{from:el("mFrom").value,to:el("mTo").value})
+    .then(renderMonth).catch(fail);
+}
+
+// ═══ วาดหน้ารายเดือน — ตารางเดียว แสดงทุกวัน ═══
+function renderMonth(d,keep){
+  DATA=d; if(!keep){ DIRTY={}; resetUi(); } PAINT=function(){ renderMonth(DATA,true); }; refresh();
+  var s=d.summary;
+  var lbl=function(ym){var p=ym.split("-");return MONTHS[+p[1]-1]+" "+(+p[0]+543);};
+  var h='<div class="who"><div><b>📜 ประวัติการทำงาน</b>'+
+        '<small>'+d.days.length+' วัน · '+s.days+' แถว</small></div>'+
+        '<div style="text-align:right"><small>ช่วงวันที่</small><br><b style="font-size:14px">'+
+        thDate(d.from)+' – '+thDate(d.to)+'</b></div></div>';
+
+  h+='<div class="grid">'+
+     c("🗓️ มาทำงาน",s.work)+c("❌ ขาด",s.absent)+c("🟡 สาย",s.late)+fineCard(s)+
+     c("🏠 ลา/พัก",s.leave)+c("⏱️ ชม.รวม",s.hrs)+
+     c("💰 ค่าแรงรวม",money(s.pay),"ok")+c("🎁 ทิป",money(s.tip))+
+     c("📒 เบิกรวม",money(s.adv),"hi")+'</div>';
+
+  // แยกยอดรายเดือน
+  if(d.byMonth.length>1){
+    h+='<div class="scroll" style="margin-bottom:11px"><table style="min-width:520px">'+
+       '<thead><tr><th style="min-width:120px">เดือน</th><th>แถว</th><th>มา</th><th>ขาด</th>'+
+       '<th>สาย</th><th>ชม.</th><th>💰 ค่าแรง</th><th>📒 เบิก</th></tr></thead><tbody>';
+    d.byMonth.forEach(function(m){
+      h+='<tr><td class="pad" style="text-align:left;padding-left:9px;font-weight:700">'+lbl(m.ym)+'</td>'+
+         '<td class="pad ro">'+m.n+'</td><td class="pad ro">'+m.summary.work+'</td>'+
+         '<td class="pad ro">'+m.summary.absent+'</td><td class="pad ro">'+m.summary.late+'</td>'+
+         '<td class="pad ro">'+m.summary.hrs+'</td>'+
+         '<td class="pad" style="font-weight:700">'+money(m.summary.pay)+'</td>'+
+         '<td class="pad red">'+money(m.summary.adv)+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
+  if(!d.rows.length){ el("body").innerHTML=h+'<div class="msg">⚠️ ไม่มีข้อมูลในช่วงนี้</div>'; return; }
+  if(d.rows.some(function(r){return r.timeLocked;}))
+    h+='<div class="note warn noprint">⏳ แถวที่มีขีดเหลืองซ้ายมือ = ยังไม่ปิดยอด แก้ได้แค่สถานะ</div>';
+
+  h+=table(allIdx(),"both");
+  el("body").innerHTML=h;
+  if(MODE==="edit") bind();
+}
+
+var MONTHS=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+            "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+
+// ═══ วาดหน้ารายคน ═══
+function renderPerson(d,keep){
+  DATA=d; if(!keep){ DIRTY={}; resetUi(); } PAINT=function(){ renderPerson(DATA,true); }; refresh();
+  var e=d.emp, s=d.summary;
+
+  var h='<div class="who"><div><b>'+esc(e.name)+'</b>'+
+        '<small>รหัส '+esc(e.id)+' · ค่าจ้างราย'+esc(e.payType)+
+        (e.branch?' · ประจำ '+esc(e.branch):'')+'</small></div>'+
+        (e.special?'<span class="sus">'+esc(e.special)+'</span>':'')+
+        '<div style="text-align:right"><small>ช่วงวันที่</small><br><b style="font-size:14px">'+
+        thDate(d.from)+' – '+thDate(d.to)+'</b></div></div>';
+
+  // แถวบน = จำนวนวัน/ชั่วโมง/หนี้  ส่วนเรื่องเงินย้ายไปแถบสี 4 ช่องด้านล่าง
+  h+='<div class="grid">'+
+     c("🗓️ วันทำงาน",s.work+" วัน")+c("⏱️ ชั่วโมงรวม",s.hrs+" ชม.")+
+     c("❌ ขาดงาน",s.absent+" วัน")+c("🟡 มาสาย",s.late+" ครั้ง")+fineCard(s)+
+     c("🏠 ลา/พักงาน",s.leave+" วัน")+
+     c("🔴 หนี้ยกมา",money(s.debt),"hi")+c("➖ ติดทั้งหมด",money(s.owe),"hi")+'</div>';
+  h+=pay4Box(s,d.hidePay);
+
+  if(d.hidePay) h+='<div class="note warn noprint">👁️ ลิงก์นี้ดูวันทำงานกับยอดเบิกได้ — ไม่แสดงค่าแรง</div>';
+
+  if(d.rows.length && d.rows.some(function(r){return r.timeLocked;}))
+    h+='<div class="note warn noprint">⏳ แถวที่มีขีดเหลืองซ้ายมือ = ยังไม่ปิดยอด แก้ได้แค่สถานะ</div>';
+
+  h+=table(allIdx(),"date");
+  h+='<div class="sign">ลงชื่อผู้รับเงิน ..................................................'+
+     '&nbsp;&nbsp;&nbsp;&nbsp; วันที่ ................................</div>';
+  el("body").innerHTML=h;
+  if(MODE==="edit") bind();
+}
+
+// ═══ วาดหน้ารายวัน ═══
+function renderDay(d,keep){
+  DATA=d; if(!keep){ DIRTY={}; resetUi(); } PAINT=function(){ renderDay(DATA,true); }; refresh();
+  if(!d.found){ el("body").innerHTML='<div class="msg">⚠️ ไม่มีข้อมูลวันที่ '+esc(thDate(d.date))+'</div>'; return; }
+  var s=d.summary;
+  var h='<div class="who"><div><b>📅 '+thLong(d.date)+'</b></div>'+closeWidget(d)+'</div>';
+  if(d.closeReq && d.closeReq.state==="ไม่สำเร็จ")
+    h+='<div class="note err noprint">ปิดยอดไม่สำเร็จ: '+esc(d.closeReq.note||"")+' — ลองกดใหม่ หรือปิดจากเมนูในชีต</div>';
+  h+='<div class="grid">'+
+     c("👥 พนักงาน",s.days+" คน")+c("🗓️ มาทำงาน",s.work+" คน")+
+     c("❌ ขาด",s.absent+" คน")+c("🟡 สาย",s.late+" ครั้ง")+fineCard(s)+
+     c("🏠 ลา/พัก",s.leave+" คน")+c("⏱️ ชม.รวม",s.hrs)+
+     c("💰 ค่าแรงรวม",money(s.pay),"ok")+c("📒 เบิกรวม",money(s.adv),"hi")+'</div>';
+  if(d.per && !(BOOT && BOOT.hidePay))
+    h+='<div class="msg noprint" style="padding:4px 8px 8px;font-size:12px;text-align:left">💰 ค่าแรงรวม · 📒 เบิกรวม · คงเหลือ ในตาราง = ของงวด '+
+       esc(thDate(d.per.from))+' – '+esc(thDate(d.per.to))+' (รวมทิป ไม่รวมหนี้ยกมา) · คงเหลือสีแดง = เบิกเกินค่าแรงที่ทำได้</div>';
+  h+=table(allIdx(),"id");
+  if(MODE==="edit") h+='<div class="msg noprint" style="padding:8px;font-size:12px">✏️ แก้เวลา/สถานะ/ค่าแรง · 📝 หมายเหตุของวัน · ➕ บันทึกเบิก (ถ่ายรูปได้)</div>';
+  el("body").innerHTML=h;
+  if(MODE==="edit") bind();
+}
+
+function allIdx(){return DATA.rows.map(function(_,i){return i;});}
+function c(k,v,cls){return '<div class="cell'+(cls?" "+cls:"")+'"><b>'+k+'</b><span>'+esc(v)+'</span></div>';}
+// ป้ายหักเงินของวันนั้น (รวมในค่าแรงแล้ว) · การ์ดสรุปยอดหัก — ไม่มีหัก = ไม่ขึ้น
+function fineTags(F){
+  return (F&&F.late?'<span class="fn l">⏰ สาย −'+nf(F.late)+'</span>':'')+
+         (F&&F.early?'<span class="fn e">🏃 เลิกก่อน −'+nf(F.early)+'</span>':'');
+}
+function fineCard(s){
+  if(!s||!s.fine) return '';
+  var t=[]; if(s.fineLate) t.push('สาย '+s.fineLate); if(s.fineEarly) t.push('เลิกก่อน '+s.fineEarly);
+  return c("💸 หักสาย/เลิกก่อน","−"+money(s.fine)+" ("+t.join(" · ")+")","hi");
+}
+
+/* 💵 แถบยอดเงิน 4 ช่องแยกสี — ใช้ทั้งหน้าดูรายบุคคลและใบพิมพ์หลายคน
+   ให้ทั้งสองที่หน้าตาเหมือนกันเป๊ะ แก้ที่เดียวจบ */
+function pay4Box(s,hidePay){
+  if(hidePay)
+    return '<div class="pay4"><div class="p3" style="grid-column:1/-1"><b>📒 เบิกไปแล้ว</b><span>'+
+           esc(money(s.adv))+'</span></div></div>';
+  return '<div class="pay4">'+
+    '<div class="p1"><b>💰 ค่าแรง</b><span>'+esc(money(s.pay))+'</span></div>'+
+    '<div class="p2"><b>🎁 ทิป/โบนัส</b><span>'+esc(money(s.tip))+'</span></div>'+
+    '<div class="p3"><b>📒 เบิกไปแล้ว</b><span>'+esc(money(s.adv))+'</span></div>'+
+    '<div class="p4"><b>✅ คงเหลือสุทธิ</b><span>'+esc(money(s.net))+'</span></div>'+
+    '</div>';
+}
+
+// ═══ ตาราง (ใช้ร่วมกันทั้ง 3 หน้า) ═══
+//    idx  = รายการ index ที่ชี้เข้า DATA.rows  (data-i ต้องเป็น index จริงเสมอ)
+//    mode = "date" รายคน (วันที่นำ) | "id" รายวัน (รหัส · เข้า · ออก · ชื่อ) | "both" รายเดือน
+//    [v10] แถวเป็น "ดูอย่างเดียว" — กด ✏️ ที่แถวนั้นก่อนถึงจะแก้เวลา/สถานะ/ค่าแรง/ทิปได้
+//    เบิก/ผู้จ่าย/สาขา ไม่อยู่ในตารางแล้ว: เบิกเป็นแถวย่อยใต้ชื่อ (กด ➕) · หมายเหตุอยู่ใต้ชื่อ (กด 📝)
+function cols(mode){
+  var noPay = !!(BOOT && BOOT.hidePay);
+  var L = [];
+  if(mode!=="id")    L.push({k:"date", h:"วันที่ (วัน)", w:124, t:"ro", left:true});
+  if(mode!=="date")  L.push({k:"id",   h:"รหัส", w:46,  t:"ro"});
+  L.push({k:"in",     h:"เข้า",   w:76, t:"time"});
+  L.push({k:"out",    h:"ออก",    w:76, t:"time"});
+  if(mode!=="date")  L.push({k:"name", h:"ชื่อ", min:150, t:"name", left:true});
+  L.push({k:"hrs",    h:"ชม.",    w:48, t:"ro", sum:true});
+  L.push({k:"status", h:"สถานะ",  min:118, t:"status"});
+  if(!noPay) L.push({k:"pay", h:"💰 ค่าแรง", w:92, t:"num", sum:true, money:true});
+  if(!noPay) L.push({k:"tip", h:"🎁 ทิป",    w:70, t:"num", sum:true});
+  // รายวัน: ค่าแรงรวม / เบิกรวม / คงเหลือ ของงวดนี้ถึงวันที่ดู — คงเหลือติดลบ = เบิกเกินค่าแรง (19 ต.ค.)
+  if(mode==="id" && !noPay && DATA && DATA.per){
+    L.push({k:"perPay", h:"💰 ค่าแรงรวม", w:96, t:"per"});
+    L.push({k:"perAdv", h:"📒 เบิกรวม", w:86, t:"per", red:true});
+    L.push({k:"perNet", h:"คงเหลือ", w:96, t:"per"});
+  }
+  // เบิกรวมของวัน: ใบพิมพ์เท่านั้น (บนจอเห็นเป็นแถวย่อย)
+  L.push({k:"adv", h:"📒 เบิก", w:76, t:"num", sum:true, red:true, printOnly:true});
+  if(MODE==="edit" && !PRINTING) L.push({k:"_act", h:"แก้ · เบิก", w:104, t:"act"});
+  return L;
+}
+
+// คอลัมน์แรกที่แถวย่อย (เบิก/หมายเหตุ) เริ่ม = ตรงกับชื่อ (รายคน: ตรงกับเวลาเข้า)
+function subLead(C){
+  for(var j=0;j<C.length;j++) if(C[j].k==="name") return j;
+  for(j=0;j<C.length;j++) if(C[j].k==="in") return j;
+  return 0;
+}
+
+function table(idx,mode){
+  if(!idx.length) return '<div class="msg">⚠️ ไม่มีข้อมูลในช่วงที่เลือก</div>';
+  var C=cols(mode), tot={};
+  var h='<div class="scroll"><table><thead><tr>'+C.map(function(c){
+      return '<th class="'+(c.printOnly?'pcell':c.t==="act"?'act':'')+'" style="'+
+             (c.w?'width:'+c.w+'px':'min-width:'+(c.min||80)+'px')+
+             (c.left?';text-align:left;padding-left:8px':'')+'">'+c.h+'</th>';
+    }).join('')+'</tr></thead><tbody>';
+
+  // มือถือ: แถวย่อยกินเต็มความกว้าง (ตารางเลื่อนซ้ายขวาได้ ช่องกรอกจะไม่หลุดจอ)
+  var prevDate=null, lead=(window.innerWidth<600)?0:subLead(C);
+  HAS_NAME=C.some(function(c){return c.k==="name";});
+  idx.forEach(function(i){
+    var r=DATA.rows[i], col=stCol(val(i,"status"));
+    C.forEach(function(c){ if(c.sum) tot[c.k]=(tot[c.k]||0)+(parseFloat(val(i,c.k))||0); });
+    var cls=[];
+    if(r.timeLocked) cls.push("open");
+    if(EDIT[i]) cls.push("editing");
+    if(rowDirty(i)) cls.push("dirty");
+    if(mode==="both" && prevDate!==null && prevDate!==r.date) cls.push("newday");
+    prevDate=r.date;
+    h+='<tr data-i="'+i+'"'+(cls.length?' class="'+cls.join(" ")+'"':'')+'>'+
+       C.map(function(c){ return cellHtml(i,r,c,col); }).join('')+'</tr>';
+    if(!PRINTING) h+=subRows(i,r,C.length,lead);
+  });
+
+  var first=0; while(first<C.length && !C[first].sum) first++;
+  h+='</tbody><tfoot><tr><td colspan="'+first+'" style="text-align:right;padding-right:9px">รวม '+
+     idx.length+(mode==="date"?' วัน':' แถว')+'</td>';
+  for(var j=first;j<C.length;j++){
+    var c=C[j];
+    h+='<td class="'+(c.printOnly?'pcell':c.t==="act"?'act':'')+'">'+
+       (c.sum ? (c.k==="hrs" ? Math.round(tot.hrs*100)/100 : money(tot[c.k])) : '')+'</td>';
+  }
+  h+='</tr></tfoot></table></div>';
+  return h;
+}
+
+// ค่าที่โชว์ = ค่าที่แก้ค้างไว้ (ยังไม่กด 💾) ถ้ามี ไม่งั้นค่าจริง
+var HAS_NAME=false;
+function val(i,f){ var d=DIRTY[i+"|"+f]; return d ? d.value : DATA.rows[i][f]; }
+function rowDirty(i){ return Object.keys(DIRTY).some(function(x){ return x.split("|")[0]===String(i); }); }
+
+function cellHtml(i,r,c,col){
+  var cls = c.printOnly ? 'pcell' : '';
+  var ed  = (MODE==="edit" && !PRINTING && !!EDIT[i]);
+  var v   = val(i,c.k);
+
+  if(c.t==="act"){
+    return '<td class="act noprint">'+
+      '<button class="ib'+(EDIT[i]?' on':'')+'" data-act="edit" data-i="'+i+'" title="แก้เวลา/สถานะ/ค่าแรง">✏️</button>'+
+      '<button class="ib'+(NOTEOPEN[i]||r.note?' on':'')+'" data-act="note" data-i="'+i+'" title="หมายเหตุของวันนี้">📝</button>'+
+      '<button class="ib add" data-act="add" data-i="'+i+'" title="บันทึกเบิก">+</button></td>';
+  }
+  if(c.t==="per"){
+    var P=r.per;
+    if(!P) return '<td class="pad ro"></td>';
+    var pv = c.k==="perPay" ? P.pay : c.k==="perAdv" ? P.adv : P.net;
+    if(c.k==="perNet" && pv<0)
+      return '<td class="pad ro" style="font-weight:700;color:#d32f2f;background:rgba(211,47,47,.10)" title="เบิกเกินค่าแรงงวดนี้ '+esc(money(-pv))+' บาท">−'+esc(money(-pv))+'</td>';
+    return '<td class="pad ro'+(c.red&&pv?' red':'')+'"'+(c.k==="perNet"?' style="font-weight:700"':'')+'>'+(pv||c.k==="perNet"?esc(money(pv)):'')+'</td>';
+  }
+  if(c.t==="name"){
+    var sum=(r.advs||[]).reduce(function(a,x){return a+x.amt;},0);
+    var note=val(i,"note");
+    return '<td class="nm">'+esc(v)+(sum?'<span class="advsum">เบิก '+esc(nf(sum))+'</span>':'')+
+           (note?'<span class="dnote">📝 '+esc(note)+'</span>':'')+'</td>';
+  }
+  if(c.k==="date" && !PRINTING && !HAS_NAME){   // รายคน: ป้ายเบิก/หมายเหตุอยู่ใต้วันที่ (ไม่มีช่องชื่อ)
+    var n2=val(i,"note"), s2=(r.advs||[]).reduce(function(a,x){return a+x.amt;},0);
+    return '<td class="pad ro" style="text-align:left;padding-left:8px;white-space:nowrap">'+
+           esc(thDate(v)+(thDow(v)?"  "+thDow(v):""))+
+           (s2?'<span class="advsum">เบิก '+esc(nf(s2))+'</span>':'')+
+           (n2?'<span class="dnote" style="white-space:normal">📝 '+esc(n2)+'</span>':'')+'</td>';
+  }
+
+  if(c.t==="ro"||!ed||c.printOnly){
+    var txt = c.k==="date" ? (thDate(v) + (thDow(v) ? "  " + thDow(v) : ""))
+            : c.t==="num" ? (v===null||v===""||!Number(v)?'':(c.money?money(v):nf(v)))
+            : (v===null||v===undefined?'':v);
+    var F=r.fine||{};
+    if(c.t==="status")
+      return '<td class="pad '+cls+'"><span class="st" style="background:'+col[0]+';color:'+col[1]+
+             '">'+esc(String(v))+'</span>'+fineTags(F)+'</td>';
+    if(c.k==="in"&&F.late) cls+=' fl';
+    if(c.k==="out"&&F.early) cls+=' fe';
+    return '<td class="pad '+cls+(c.t==="ro"?' ro':'')+(c.red?' red':'')+'"'+
+           (c.left?' style="text-align:left;padding-left:8px'+(c.k==="date"?';white-space:nowrap':'')+'"':'')+
+           (c.money?' style="font-weight:700"':'')+'>'+esc(txt)+'</td>';
+  }
+
+  if(c.t==="time"){
+    if(r.timeLocked) return '<td class="pad ro '+cls+'">'+esc(v)+'</td>';
+    return '<td class="'+cls+'"><input type="time" data-i="'+i+'" data-f="'+c.k+'" value="'+
+           (v==="--:--"?"":esc(v))+'"></td>';
+  }
+  if(c.t==="num")
+    return '<td class="'+cls+(c.red?' red':'')+'"><input type="number" step="0.01" data-i="'+i+
+           '" data-f="'+c.k+'" value="'+(v===0||v===""||v===null?"":esc(v))+'"></td>';
+  if(c.t==="status"){
+    var o=BOOT.statuses.map(function(x){
+      return '<option value="'+esc(x)+'"'+(x===v?" selected":"")+'>'+esc(x)+'</option>';}).join('');
+    if(BOOT.statuses.indexOf(v)<0) o='<option value="'+esc(v)+'" selected>'+esc(v)+'</option>'+o;
+    return '<td class="'+cls+'" style="background:'+col[0]+'"><select data-i="'+i+
+           '" data-f="status" style="color:'+col[1]+';font-weight:700">'+o+'</select></td>';
+  }
+  return '<td class="pad '+cls+'">'+esc(v||"")+'</td>';
+}
+
+// ── แถวย่อยใต้แถวหลัก: รายการเบิก · ช่องเบิกที่กด + · ช่องหมายเหตุ ──
+function subRows(i,r,ncol,lead){
+  var pre=lead?'<td colspan="'+lead+'"></td>':'', span=ncol-lead, h='';
+  (r.advs||[]).forEach(function(a,k){
+    var ek=i+"|"+k, e=AEDIT[ek];
+    if(e){ h+='<tr class="sub noprint">'+pre+'<td colspan="'+span+'">'+advForm(e,"ae",ek,"aesave","aecancel",i,k,a.photo)+'</td></tr>'; return; }
+    h+='<tr class="sub noprint'+(a.busy?' busy':'')+'">'+pre+'<td colspan="'+span+'"><div class="al">'+
+       '<span class="m">📒 '+esc(nf(a.amt))+'</span>'+
+       '<span class="x">'+esc(a.time||"")+'</span><span class="x">'+esc(a.payer||"")+'</span>'+
+       '<span class="x">'+esc(a.note||"")+'</span><span class="sp"></span>'+
+       (a.photo?'<img class="th" src="'+esc(a.photo)+'" data-zoom="'+esc(a.photo)+'" alt="รูป" loading="lazy">':'')+
+       (MODE==="edit"&&!a.busy?'<button class="del" data-act="aedit" data-i="'+i+'" data-k="'+k+'" title="แก้รายการนี้">✏️</button>'+
+         '<button class="del" data-act="del" data-i="'+i+'" data-k="'+k+'" title="ลบรายการนี้">🗑</button>':'')+
+       (a.busy?'<span class="x">⏳ '+esc(a.busy)+'</span>':'')+
+       '</div></td></tr>';
+  });
+  (DRAFT[i]||[]).forEach(function(d,k){
+    h+='<tr class="sub noprint">'+pre+'<td colspan="'+span+'">'+advForm(d,"dr",i+"|"+k,"advsave","advcancel",i,k,"")+'</td></tr>';
+  });
+  if(NOTEOPEN[i]){
+    h+='<tr class="sub nt noprint">'+pre+'<td colspan="'+span+'"><div class="nf">'+
+       '<input type="text" data-i="'+i+'" data-f="note" placeholder="หมายเหตุของวันนี้ (เช่น ช่วยงานนอก)" value="'+esc(val(i,"note")||"")+'">'+
+       '<button class="ok" data-act="notesave">บันทึก</button></div></td></tr>';
+  }
+  return h;
+}
+
+// ช่องกรอกเบิก — ใช้ทั้งเพิ่มใหม่ (+) และแก้รายการเดิม (✏️)
+//   kind "dr" = DRAFT[i][k] · "ae" = AEDIT["i|k"]   · oldPhoto = รูปเดิมของรายการที่แก้
+function advForm(d,kind,key,okAct,cxAct,i,k,oldPhoto){
+  var at=' data-'+kind+'="'+key+'|', pic=d.photo||oldPhoto;
+  return '<div class="af'+(kind==="ae"?' ed':'')+'">'+
+    '<input class="amt" inputmode="decimal" placeholder="บาท"'+at+'amt" value="'+esc(d.amt)+'">'+
+    '<input class="tm" type="time"'+at+'time" value="'+esc(d.time)+'">'+
+    '<input class="py" placeholder="ผู้จ่าย" list="payerList"'+at+'payer" value="'+esc(d.payer)+'">'+
+    '<input class="nt" placeholder="หมายเหตุ (ไม่ใส่ก็ได้)"'+at+'note" value="'+esc(d.note)+'">'+
+    '<label class="cam" title="'+(kind==="ae"?'เปลี่ยนรูป':'ถ่ายรูป / เลือกรูป (ไม่บังคับ)')+'">'+(pic?'<img src="'+esc(pic)+'" alt="">':'📷')+' รูป'+
+      '<input type="file" accept="image/*" capture="environment" hidden data-ph="'+kind+'|'+key+'"></label>'+
+    '<button class="ok" data-act="'+okAct+'" data-i="'+i+'" data-k="'+k+'"'+(d.busy?' disabled':'')+'>'+(d.busy?'⏳':'บันทึก')+'</button>'+
+    '<button class="cx" data-act="'+cxAct+'" data-i="'+i+'" data-k="'+k+'" title="ยกเลิก">✕</button>'+
+    '</div>';
+}
+
+// ═══ แก้ไข ═══
+function bind(){
+  Array.prototype.forEach.call(document.querySelectorAll("[data-f]"),function(n){
+    n.onchange=function(){
+      var i=+n.dataset.i, f=n.dataset.f, r=DATA.rows[i], v=n.value;
+      if((f==="in"||f==="out")&&!v) v="--:--";
+      var k=i+"|"+f, same;
+      if(f==="tip"||f==="pay"){          // ตัวเลข: "" กับ 0 ถือว่าเท่ากัน
+        same = (parseFloat(v)||0) === (parseFloat(r[f])||0);
+      } else {
+        same = String(v) === String(r[f]==null?"":r[f]);
+      }
+      if(same) delete DIRTY[k];
+      else DIRTY[k]={src:r.src,row:r.row,id:r.id,date:r.date,field:f,value:v};
+      var tr=document.querySelector('tr[data-i="'+i+'"]');
+      if(tr) tr.classList.toggle("dirty",rowDirty(i));
+      refresh();
+    };
+  });
+  // ช่องในแถวเบิกที่ยังไม่บันทึก — เก็บค่าไว้ใน DRAFT (วาดใหม่แล้วไม่หาย)
+  Array.prototype.forEach.call(document.querySelectorAll("[data-dr]"),function(n){
+    n.oninput=function(){ var p=n.dataset.dr.split("|"); DRAFT[p[0]][p[1]][p[2]]=n.value; };
+    if(n.classList.contains("amt")) n.onkeydown=function(e){
+      if(e.key==="Enter"){ var p=n.dataset.dr.split("|"); advSave(+p[0],+p[1]); } };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-ae]"),function(n){
+    var p=n.dataset.ae.split("|"), ek=p[0]+"|"+p[1];
+    n.oninput=function(){ AEDIT[ek][p[2]]=n.value; };
+    n.onkeydown=function(e){
+      if(e.key==="Enter" && n.tagName==="INPUT") advEditSave(+p[0],+p[1]);
+      if(e.key==="Escape"){ delete AEDIT[ek]; PAINT(); } };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-ph]"),function(n){
+    n.onchange=function(){
+      var p=n.dataset.ph.split("|"), f=n.files&&n.files[0];
+      if(!f) return;
+      shrinkPhoto(f).then(function(url){
+        if(p[0]==="ae") AEDIT[p[1]+"|"+p[2]].photo=url; else DRAFT[p[1]][p[2]].photo=url;
+        PAINT(); })
+        .catch(function(){ toast("❌ อ่านรูปไม่ได้"); });
+    };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-act]"),function(b){
+    b.onclick=function(){
+      var a=b.dataset.act, i=+b.dataset.i, k=+b.dataset.k;
+      if(a==="edit"){ EDIT[i]=!EDIT[i]; PAINT(); }
+      else if(a==="note"){ NOTEOPEN[i]=!NOTEOPEN[i]; PAINT();
+        var x=document.querySelector('.nf input[data-i="'+i+'"]'); if(x) x.focus(); }
+      else if(a==="notesave"){ save(); }
+      else if(a==="add"){ (DRAFT[i]=DRAFT[i]||[]).push({amt:"",time:nowHM(),payer:lastPayer(),note:"",photo:""}); PAINT();
+        var ins=document.querySelectorAll('input[data-dr^="'+i+'|"].amt'); if(ins.length) ins[ins.length-1].focus(); }
+      else if(a==="advcancel"){ DRAFT[i].splice(k,1); PAINT(); }
+      else if(a==="advsave"){ advSave(i,k); }
+      else if(a==="del"){ advDel(i,k); }
+      else if(a==="aedit"){ advEditOpen(i,k); }
+      else if(a==="aesave"){ advEditSave(i,k); }
+      else if(a==="aecancel"){ delete AEDIT[i+"|"+k]; PAINT(); }
+      else if(a==="close"){ closeDay(); }
+      else if(a==="reload"){ reloadView(); }
+    };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-zoom]"),function(m){
+    m.onclick=function(){ el("zmi").src=m.dataset.zoom.replace(/sz=w\d+/,"sz=w1600"); el("zm").style.display="flex"; };
+  });
+  var dl=el("payerList");
+  if(!dl){ dl=document.createElement("datalist"); dl.id="payerList"; document.body.appendChild(dl); }
+  dl.innerHTML=payers().map(function(p){return '<option value="'+esc(p)+'">';}).join("");
+}
+
+// ═══ 📒 เบิก ═══
+function nowHM(){
+  var t=new Date(Date.now()+7*3600000);   // เวลาไทย ไม่ขึ้นกับโซนเวลาเครื่อง
+  return ("0"+t.getUTCHours()).slice(-2)+":"+("0"+t.getUTCMinutes()).slice(-2);
+}
+function payers(){
+  var seen={}, out=[];
+  (DATA&&DATA.rows||[]).forEach(function(r){ (r.advs||[]).forEach(function(a){
+    if(a.payer && !seen[a.payer]){ seen[a.payer]=1; out.push(a.payer); } }); });
+  return out;
+}
+function lastPayer(){ try{ return localStorage.getItem("advPayer")||""; }catch(e){ return ""; } }
+
+// ย่อรูปก่อนส่ง (ด้านยาวสุด 1280px) — เน็ตช้าก็ส่งไว ไม่กินพื้นที่ Drive
+function shrinkPhoto(file){
+  return new Promise(function(res,rej){
+    var fr=new FileReader();
+    fr.onerror=rej;
+    fr.onload=function(){
+      var img=new Image();
+      img.onerror=rej;
+      img.onload=function(){
+        var k=Math.min(1,1280/Math.max(img.width,img.height));
+        var cv=document.createElement("canvas");
+        cv.width=Math.round(img.width*k); cv.height=Math.round(img.height*k);
+        cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+        res(cv.toDataURL("image/jpeg",0.72));
+      };
+      img.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+function recalcAdv(){
+  if(!DATA||!DATA.summary) return;
+  var s=DATA.summary;
+  s.adv=Math.round(DATA.rows.reduce(function(a,r){return a+(parseFloat(r.adv)||0);},0)*100)/100;
+  s.owe=Math.round((s.adv+(s.debt||0))*100)/100;
+  if(s.net!==null && s.net!==undefined) s.net=Math.round(((s.pay||0)+(s.tip||0)-s.owe)*100)/100;
+}
+
+// เบิกเกินค่าแรงงวดนี้ = ถามก่อน (ตั้งใจให้เบิกล่วงหน้าก็กดบันทึกต่อได้) · ไม่มียอดงวด (หน้าอื่น/ลูกน้อง) = ไม่ถาม
+function perOk(r, add){
+  var P=r.per;
+  if(!P || !(add>0)) return true;
+  var after=Math.round((P.net-add)*100)/100;
+  if(after>=0) return true;
+  return confirm("⚠️ "+r.name+" — งวดนี้ถึงวันนี้\n💰 ค่าแรงรวม "+money(P.pay)+" · 📒 เบิกไปแล้ว "+money(P.adv)+
+                 "\n\nถ้าเบิกอีก "+money(add)+" บาท จะเกินค่าแรง "+money(-after)+" บาท\n\nยังจะบันทึกไหม?");
+}
+function perAdd(r, d){
+  if(!r.per || !d) return;
+  r.per.adv=Math.round((r.per.adv+d)*100)/100;
+  r.per.net=Math.round((r.per.pay-r.per.adv)*100)/100;
+}
+
+function advSave(i,k){
+  var d=DRAFT[i][k], r=DATA.rows[i];
+  var amt=parseFloat(String(d.amt||"").replace(/,/g,""));
+  if(!(amt>0)){ toast("ใส่จำนวนเงินก่อน"); return; }
+  if(!perOk(r, amt)) return;
+  d.busy=true; PAINT();
+  try{ localStorage.setItem("advPayer",d.payer||""); }catch(e){}
+  call("time.addAdv",{src:r.src,row:r.row,id:r.id,date:r.date,amount:amt,time:d.time,
+                      payer:d.payer,note:d.note,photo:d.photo||"",reqId:uuid()})
+    .then(function(res){
+      var legacy=(r.advs||[]).filter(function(a){return a.item==="legacy";})[0];
+      if(legacy) legacy.item="adopted";
+      (r.advs=r.advs||[]).push({item:res.item,time:d.time,amt:amt,payer:d.payer,note:d.note,photo:d.photo||""});
+      r.adv=res.total; DRAFT[i].splice(k,1); perAdd(r, amt); recalcAdv(); PAINT();
+      toast("✅ บันทึกเบิก "+nf(amt)+" บาท — "+r.name);
+    })
+    .catch(function(e){ d.busy=false; PAINT(); toast("❌ "+e.message,6000); });
+}
+
+function advDel(i,k){
+  var r=DATA.rows[i], a=r.advs[k];
+  if(a.item==="adopted"){ toast("กดโหลดใหม่ก่อนลบรายการนี้"); return; }
+  if(!confirm("ลบรายการเบิก "+nf(a.amt)+" บาท ของ "+r.name+(a.time?" (เวลา "+a.time+")":"")+" ?\n(ในชีตจะเก็บไว้ว่าเคยลบ)")) return;
+  a.busy="กำลังลบ…"; PAINT();          // เห็นทันทีว่ากดแล้ว ไม่ต้องกดซ้ำ
+  call("time.delAdv",{src:r.src,row:r.row,id:r.id,date:r.date,item:a.item,reqId:uuid()})
+    .then(function(res){ var j=r.advs.indexOf(a); if(j>=0) r.advs.splice(j,1); r.adv=res.total; perAdd(r, -a.amt); recalcAdv(); PAINT(); toast("🗑 ลบรายการเบิกแล้ว"); })
+    .catch(function(e){ a.busy=""; PAINT(); toast("❌ "+e.message,6000); });
+}
+
+// ✏️ แก้รายการเบิกที่บันทึกไปแล้ว (พิมพ์ยอดผิด ฯลฯ) — ไม่ต้องลบแล้วเขียนใหม่
+function advEditOpen(i,k){
+  var a=DATA.rows[i].advs[k];
+  if(a.item==="adopted"){ toast("กดโหลดใหม่ก่อนแก้รายการนี้"); return; }
+  AEDIT[i+"|"+k]={amt:String(a.amt),time:a.time||"",payer:a.payer||"",note:a.note==="ยอดเดิมในชีต"?"":(a.note||""),photo:""};
+  PAINT();
+  var x=document.querySelector('input[data-ae="'+i+'|'+k+'|amt"]'); if(x){ x.focus(); x.select(); }
+}
+function advEditSave(i,k){
+  var ek=i+"|"+k, e=AEDIT[ek], r=DATA.rows[i], a=r.advs[k];
+  if(!e||e.busy) return;
+  var amt=parseFloat(String(e.amt||"").replace(/,/g,""));
+  if(!(amt>0)){ toast("ใส่จำนวนเงิน (ถ้าจะยกเลิกทั้งรายการ ให้กด 🗑 ลบ)",4500); return; }
+  if(amt>a.amt && !perOk(r, amt-a.amt)) return;
+  var oldAmt=a.amt;
+  e.busy=true; PAINT();
+  try{ if(e.payer) localStorage.setItem("advPayer",e.payer); }catch(x){}
+  call("time.editAdv",{src:r.src,row:r.row,id:r.id,date:r.date,item:a.item,amount:amt,time:e.time,
+                       payer:e.payer,note:e.note,photo:e.photo||"",reqId:uuid()})
+    .then(function(res){
+      if(a.item==="legacy") a.item=res.item;
+      a.amt=amt; a.time=e.time; a.payer=e.payer; a.note=e.note; a.photo=res.photo||"";
+      r.adv=res.total; delete AEDIT[ek]; perAdd(r, amt-oldAmt); recalcAdv(); PAINT();
+      toast("✅ แก้รายการเบิกแล้ว — "+r.name+" "+nf(amt)+" บาท");
+    })
+    .catch(function(x){ e.busy=false; PAINT(); toast("❌ "+x.message,6000); });
+}
+
+// ═══ 🔒 ปิดยอด ═══
+var TH_MONTH=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+              "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+function thLong(s){
+  var p=String(s).split("-"); if(p.length!==3) return s;
+  return "วัน"+thDow(s)+" "+(+p[2])+" "+TH_MONTH[+p[1]-1]+" "+(+p[0]+543);
+}
+function closeWidget(d){
+  if(d.closed) return '<span class="cst done">🔒 ปิดยอดแล้ว</span>';
+  if(d.closeReq && d.closeReq.state==="รอ")
+    return '<span class="noprint" style="display:flex;gap:6px;align-items:center">'+
+           '<span class="cst run">⏳ กำลังปิดยอด… (รอระบบ 1–5 นาที)</span>'+
+           '<button class="gh sm" data-act="reload">🔄 โหลดใหม่</button></span>';
+  if(d.canClose) return '<button class="cbtn noprint" data-act="close">🔒 ปิดยอดวันนี้</button>';
+  return '<span class="cst wait">⏳ ยังไม่ปิดยอด</span>';
+}
+function closeDay(){
+  if(Object.keys(DIRTY).length){ toast("กด 💾 บันทึกที่แก้ไว้ก่อน แล้วค่อยปิดยอด",5000); return; }
+  if(!confirm("ปิดยอด"+thLong(DATA.date)+"?\n\n• คนที่สแกนเข้าแต่ยังไม่สแกนออก จะนับเป็น \"ลืมสแกนออก\" (ได้ครึ่งวัน)\n"+
+              "• หลังปิด เวลาจะไม่เปลี่ยนตามการสแกนอีก (ยังแก้ได้ด้วยปุ่ม ✏️)")) return;
+  call("time.closeDay",{date:DATA.date})
+    .then(function(){ DATA.closeReq={state:"รอ"}; PAINT();
+      toast("ส่งคำขอปิดยอดแล้ว — ระบบจะปิดให้ภายใน 1–5 นาที",5000);
+      setTimeout(function(){ if(VIEW==="day"||VIEW==="special") reloadView(); },90000); })
+    .catch(function(e){ toast("❌ "+e.message,6000); });
+}
+function reloadView(){
+  if(Object.keys(DIRTY).length && !confirm("ยังมีที่แก้ไม่ได้บันทึก จะทิ้งไปไหม?")) return;
+  VIEW==="person"?loadPerson():VIEW==="month"?loadMonth():VIEW==="special"?loadSpecial():loadDay();
+}
+
+function refresh(){
+  var n=Object.keys(DIRTY).length;
+  ["save","save2","save3","save4"].forEach(function(id){
+    var b=el(id); if(!b) return;
+    b.textContent="💾 บันทึก ("+n+")";
+    b.disabled=(n===0||MODE!=="edit");
+  });
+}
+
+function save(){
+  var ch=Object.keys(DIRTY).map(function(k){return DIRTY[k];});
+  if(!ch.length) return;
+  ["save","save2","save3","save4"].forEach(function(id){var b=el(id);if(b){b.disabled=true;b.textContent="⏳ บันทึก...";}});
+  call("time.saveRows",{changes:ch,reqId:uuid(),reloadDay:VIEW==="day"})
+    .then(function(res){
+      toast("✅ บันทึกแล้ว "+res.changed+" ช่อง");
+      DIRTY={}; resetUi();
+      if(VIEW==="day" && res.day){ renderDay(res.day); return; }   // 🚀 ข้อมูลใหม่มากับคำตอบแล้ว
+      VIEW==="person"?loadPerson():VIEW==="month"?loadMonth():VIEW==="special"?loadSpecial():loadDay();
+    })
+    .catch(function(e){ refresh(); toast("❌ "+e.message,6000); });
+}
+
+// ═══ 📷 กล้องคอม (รูปเบิกเงิน) ═══
+// ช่องรูป (input capture) บนมือถือเปิดกล้องเอง · บนคอม (Windows) ได้แค่หน้าต่าง "เลือกไฟล์" → เปิดกล้องในหน้าเว็บแทน
+// ถ่ายแล้วส่งรูปเข้าช่องเดิม (ย่อรูป/บันทึกแบบเดิมทุกอย่าง) · กล้องเสมือน (OBS ฯลฯ) = เปลี่ยนไปกล้องจริงให้เอง · จำกล้องที่เลือก
+// เปิดกล้องไม่ได้ (ไม่มีกล้อง/ไม่อนุญาต) = ปุ่ม 📁 เลือกไฟล์แทน
+var CAM={stream:null,input:null,devs:[],idx:-1,win:null,doc:document,nav:navigator,has:null,sess:0};
+// เครื่องไม่มีกล้องเลย = กด 📷 แล้วเปิดหน้าต่างเลือกรูปแบบเดิมทันที (ไม่ต้องผ่านหน้าต่างกล้อง) · เสียบกล้องทีหลังก็รู้เอง
+//   (กรอบที่บล็อกกล้องซ่อนรายชื่อกล้องด้วย → ตอนนั้นไม่ใช้ค่านี้ ให้ไปหน้าต่างกล้องแยกตามเดิม)
+function camCheck(){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices)) return;
+  navigator.mediaDevices.enumerateDevices().then(function(ds){
+    CAM.has=ds.some(function(d){return d.kind==="videoinput";});
+  }).catch(function(){});
+}
+camCheck();
+try{ navigator.mediaDevices.addEventListener("devicechange",camCheck); }catch(e){}
+function cu(id){ return CAM.doc.getElementById(id); }   // ปุ่ม/วิดีโอของกล้องที่เปิดอยู่ (หน้าต่างในหน้านี้ หรือหน้าต่างกล้องแยก)
+function camDesktop(){
+  return !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)
+    && !(window.matchMedia&&matchMedia("(pointer:coarse)").matches) && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+// กรอบหน้าเว็บที่ไม่ให้ใช้กล้อง — เปิดในแอพซื้อของ กรอบของ Google บล็อกกล้อง (15 ต.ค. ตรวจจากเครื่องร้าน)
+function camBlocked(){
+  var fp=document.permissionsPolicy||document.featurePolicy;
+  try{ return !!(fp&&fp.allowsFeature&&!fp.allowsFeature("camera")); }catch(e){ return false; }
+}
+function camVirtual(l){ return /virtual|obs|snap ?cam|manycam|xsplit|droidcam|epoccam|ndi/i.test(l||""); }
+function camStop(){
+  if(CAM.stream){ CAM.stream.getTracks().forEach(function(t){t.stop();}); CAM.stream=null; }
+  var v=cu("camVid"); if(v) v.srcObject=null;
+}
+function camClose(){
+  camStop();
+  if(CAM.win){ var w=CAM.win; CAM.win=null; try{ w.close(); }catch(e){} }
+  else el("camBox").style.display="none";
+  CAM.doc=document; CAM.nav=navigator; CAM.input=null;
+}
+function camOpen(inp){
+  if(CAM.input) camClose();
+  CAM.input=inp; CAM.idx=-1; CAM.sess++;
+  if(camBlocked()){ camPopup(inp); return; }
+  el("camErr").textContent=""; el("camName").textContent="กำลังเปิดกล้อง…"; el("camSnap").disabled=true;
+  el("camBox").style.display="flex";
+  camStart();
+}
+// กล้องในหน้าต่างเล็กแยก: หน้าต่างใหม่ไม่อยู่ในกรอบ จึงใช้กล้องได้ · ถ่ายแล้วรูปเข้าช่องเดิมในหน้านี้ หน้าต่างปิดเอง
+function camPopup(inp){
+  var w=null;
+  try{ w=window.open("","advCam","width=700,height=640"); }catch(e){}
+  if(!w||!w.document){
+    CAM.input=inp; el("camBox").style.display="flex"; el("camSnap").disabled=true; el("camSw").style.display="none";
+    el("camName").textContent=""; el("camErr").textContent="เปิดหน้าต่างกล้องไม่ได้ (Chrome บล็อกป๊อปอัพ) — กด 📁 เลือกไฟล์แทน";
+    return;
+  }
+  var d=w.document;
+  d.open();
+  d.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>📷 ถ่ายรูปเบิกเงิน</title><style>'+
+    'body{margin:0;font-family:"Noto Sans Thai",Tahoma,sans-serif;background:#1a2733;color:#fff;padding:12px}'+
+    '.hd{display:flex;gap:8px;align-items:center;margin-bottom:8px}.hd b{font-size:16px}.hd span{flex:1;font-size:12px;color:#b8c4ce}'+
+    'video{width:100%;max-height:calc(100vh - 150px);background:#000;border-radius:8px;display:block}'+
+    'p{color:#ff8a7a;font-weight:700;font-size:13px;margin:6px 0 0;min-height:1em}'+
+    '.bt{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}'+
+    'button{flex:1;min-width:110px;height:42px;border-radius:8px;border:1px solid #455565;background:#26384a;color:#fff;font:inherit;font-weight:700;cursor:pointer}'+
+    'button.go{background:#c0392b;border-color:#c0392b}button:disabled{opacity:.5;cursor:default}'+
+    '</style></head><body><div class="hd"><b>📷 ถ่ายรูป</b><span id="camName">กำลังเปิดกล้อง…</span></div>'+
+    '<video id="camVid" autoplay playsinline muted></video><p id="camErr"></p>'+
+    '<div class="bt"><button id="camSnap" class="go" disabled>📸 ถ่าย (Enter)</button><button id="camSw" style="display:none">🔄 เปลี่ยนกล้อง</button>'+
+    '<button id="camFile">📁 เลือกไฟล์แทน</button><button id="camX">✕ ปิด</button></div>'+
+    '<input id="camPick" type="file" accept="image/*" hidden></body></html>');
+  d.close();
+  CAM.input=inp; CAM.win=w; CAM.doc=d; CAM.nav=w.navigator;
+  d.getElementById("camSnap").onclick=camSnap;
+  d.getElementById("camSw").onclick=camSwitch;
+  d.getElementById("camX").onclick=camClose;
+  // เลือกไฟล์ในหน้าต่างกล้องเลย (กดในหน้าต่างนี้ หน้าหลักเปิดหน้าต่างเลือกไฟล์ให้ไม่ได้)
+  d.getElementById("camFile").onclick=function(){ d.getElementById("camPick").click(); };
+  d.getElementById("camPick").onchange=function(){ var f=this.files&&this.files[0]; if(f) camPut(f); };
+  d.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){ e.preventDefault(); camClose(); }
+    else if(e.key==="Enter"&&!cu("camSnap").disabled){ e.preventDefault(); camSnap(); }
+  });
+  w.addEventListener("pagehide",function(){ if(CAM.win===w){ camStop(); CAM.win=null; CAM.doc=document; CAM.nav=navigator; CAM.input=null; } });
+  try{ w.focus(); }catch(e){}
+  camStart();
+}
+function camStart(){
+  camStop();
+  var saved=""; try{ saved=localStorage.getItem("advCam")||""; }catch(e){}
+  var dev=CAM.idx>=0?CAM.devs[CAM.idx]:null, nav=CAM.nav;
+  var v=dev?{deviceId:{exact:dev.deviceId},width:{ideal:1280}}:(saved?{deviceId:{ideal:saved},width:{ideal:1280}}:{width:{ideal:1280}});
+  nav.mediaDevices.getUserMedia({video:v,audio:false}).then(function(s){
+    if(!CAM.input||nav!==CAM.nav){ s.getTracks().forEach(function(t){t.stop();}); return; }   // ปิดหน้าต่างไปก่อนกล้องเปิดเสร็จ
+    CAM.stream=s;
+    var vid=cu("camVid"); vid.srcObject=s; try{ vid.play(); }catch(e){}
+    var tr=s.getVideoTracks()[0], lbl=tr&&tr.label||"", id=tr&&tr.getSettings?tr.getSettings().deviceId:"";
+    return nav.mediaDevices.enumerateDevices().then(function(ds){
+      CAM.devs=ds.filter(function(d){return d.kind==="videoinput";});
+      var cur=-1; CAM.devs.forEach(function(d,i){ if(d.deviceId===id||(cur<0&&d.label===lbl)) cur=i; });
+      // เปิดได้กล้องเสมือน แต่มีกล้องจริง (และยังไม่เคยเลือกเอง) → เปลี่ยนไปกล้องจริง
+      if(!dev && camVirtual(lbl) && !saved){
+        var real=-1; CAM.devs.forEach(function(d,i){ if(real<0&&!camVirtual(d.label)) real=i; });
+        if(real>=0){ CAM.idx=real; camStart(); return; }
+      }
+      CAM.idx=cur;
+      cu("camSw").style.display=CAM.devs.length>1?"":"none";
+      cu("camName").textContent=lbl+(camVirtual(lbl)?" (กล้องเสมือน)":"");
+      cu("camSnap").disabled=false;
+    });
+  }).catch(function(err){
+    var n=err&&err.name||String(err);
+    cu("camName").textContent="";
+    cu("camErr").textContent=(n==="NotAllowedError"?"ไม่ได้อนุญาตให้ใช้กล้อง":n==="NotFoundError"?"ไม่พบกล้องในเครื่องนี้":n==="NotReadableError"?"กล้องถูกโปรแกรมอื่นใช้อยู่":"เปิดกล้องไม่ได้ ("+n+")")+" — กด 📁 เลือกไฟล์แทน";
+  });
+}
+function camSwitch(){
+  if(CAM.devs.length<2) return;
+  CAM.idx=(CAM.idx+1)%CAM.devs.length;
+  try{ localStorage.setItem("advCam",CAM.devs[CAM.idx].deviceId); }catch(e){}
+  cu("camSnap").disabled=true; camStart();
+}
+// ใส่รูปเข้าช่องเดิม แล้วให้ช่องนั้นย่อรูป/เก็บเหมือนเลือกไฟล์เอง
+function camPut(file){
+  var inp=CAM.input;
+  if(!inp) return;
+  try{
+    var dt=new DataTransfer();
+    dt.items.add(new File([file],file.name||"photo.jpg",{type:file.type||"image/jpeg"}));
+    inp.files=dt.files;
+  }catch(e){ cu("camErr").textContent="ใส่รูปไม่ได้ — ลองใหม่อีกครั้ง"; return; }
+  camClose();
+  inp.dispatchEvent(new Event("change",{bubbles:true}));
+}
+function camSnap(){
+  var vid=cu("camVid");
+  if(!CAM.input||!vid||!CAM.stream) return;
+  if(!vid.videoWidth){   // กดถ่ายตอนภาพจากกล้องยังไม่มา (เพิ่งเปิด) → รอภาพแล้วถ่ายให้เอง (ไม่เกิน 5 วิ · เดิมกดแล้วเงียบ)
+    var ss=CAM.sess, t0=Date.now(); cu("camSnap").disabled=true;
+    (function w(){
+      if(ss!==CAM.sess||!CAM.input) return;   // ปิด/เปิดหน้าต่างใหม่ไปแล้ว
+      var v=cu("camVid");
+      if(v&&v.videoWidth){ cu("camSnap").disabled=false; camSnap(); return; }
+      if(Date.now()-t0>5000){ cu("camSnap").disabled=false; cu("camErr").textContent="กล้องยังไม่ส่งภาพ — กด 📸 ถ่าย อีกครั้ง หรือ 🔄 เปลี่ยนกล้อง"; return; }
+      setTimeout(w,100);
+    })();
+    return;
+  }
+  cu("camErr").textContent="";
+  var cv=document.createElement("canvas");
+  cv.width=vid.videoWidth; cv.height=vid.videoHeight;
+  cv.getContext("2d").drawImage(vid,0,0);
+  cv.toBlob(function(b){
+    if(!b){ cu("camErr").textContent="ถ่ายรูปไม่สำเร็จ ลองอีกครั้ง"; return; }
+    camPut(new File([b],"photo.jpg",{type:"image/jpeg"}));
+  },"image/jpeg",0.9);
+}
+document.addEventListener("click",function(e){
+  var lab=e.target&&e.target.closest?e.target.closest("label.cam"):null;
+  if(!lab||!camDesktop()||(CAM.has===false&&!camBlocked())) return;   // ไม่มีกล้อง = หน้าต่างเลือกรูปเดิม
+  var inp=lab.querySelector('input[type="file"]');
+  if(!inp||e.target===inp) return;   // สั่งเปิดไฟล์จากปุ่ม "เลือกไฟล์แทน" = ปล่อยให้เปิดหน้าต่างเลือกไฟล์
+  e.preventDefault(); e.stopPropagation();
+  camOpen(inp);
+},true);
+el("camX").onclick=camClose;
+el("camSnap").onclick=camSnap;
+el("camSw").onclick=camSwitch;
+el("camFile").onclick=function(){ var inp=CAM.input; camClose(); if(inp) inp.click(); };
+el("camBox").onclick=function(e){ if(e.target===el("camBox")) camClose(); };
+document.addEventListener("keydown",function(e){
+  if(el("camBox").style.display!=="flex") return;
+  if(e.key==="Escape"){ e.preventDefault(); camClose(); }
+  else if(e.key==="Enter"&&!el("camSnap").disabled){ e.preventDefault(); camSnap(); }
+});
+</script>
+<script>/* ShopPOS: วาดใหม่เมื่อได้ชีตชุดใหม่ */
+/* ได้ชีตชุดใหม่ (เครื่องอื่น/มือถือเบิกเงิน/แก้เวลา) = วาดใหม่ · มีที่แก้ค้าง/กำลังพิมพ์ = รอแล้ววาดทีหลัง
+   (เดิมข้ามไปเลย — บางเครื่องไม่ขึ้นรายการเบิกจนกดเปลี่ยนแท็บ/โหลดใหม่ · 18 ต.ค.) */
+function lappBusy(){
+  if(typeof liveBusy === 'function') return liveBusy();   /* หน้าเว็บนับเฉพาะที่เปิดค้างจริง (ปิด ✏️/ยกเลิกเบิกแล้วเหลือคีย์ว่าง = ไม่นับ · 21 ต.ค.) */
+  var on = function (o) { return Object.keys(o || {}).some(function (k) { var v = o[k]; return Array.isArray(v) ? v.length > 0 : !!v; }); };   /* ปิดแล้วเหลือคีย์ว่าง (false/[]) = ไม่นับ */
+  if(on(DIRTY) || on(EDIT) || on(DRAFT) || on(AEDIT)) return true;
+  var a = document.activeElement;
+  return !!(a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|file|date)$/i.test(a.type))));
+}
+function lappRebase(){
+  try{
+    clearTimeout(window._lappRedo);
+    if(!BOOT) return;
+    if(lappBusy()){ window._lappRedo = setTimeout(lappRebase, 2000); return; }
+    setTab(VIEW);
+  }catch(e){}
+}
+</script>
+<a href="m.html" target="_self" id="toMobile" style="position:fixed;right:10px;bottom:12px;z-index:2147483001;padding:10px 16px;border-radius:999px;background:#1f2937;color:#fff;font:700 14px sans-serif;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.25)">‹ กลับหน้ามือถือ</a>
+</body>
+</html>
