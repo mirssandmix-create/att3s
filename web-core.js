@@ -8,9 +8,28 @@
    สร้างหน้าเว็บแอพ: python tools/build_attend_web.py (ใส่เลขรุ่น + ลิงก์เว็บเวลาทำงานของร้านให้ตอนสร้าง) */
 (function () {
   "use strict";
-  var VERSION = "2026.11.01-221558", ATT_URL = "";
+  var VERSION = "2026.11.01-231739", ATT_URL = "";
+  var DEP_HASH = "a3b813398c2a85100869816cc7f5c9342f407ac7791fe98fc63279dab7e0a7bb";   // SHA-256 ของรหัสเว็บเวลาทำงานของร้าน (ตัวรหัสไม่อยู่ในไฟล์สาธารณะ) — รับเฉพาะลิงก์เจ้าของของเว็บนี้
   var DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // ลองบนคอม (tools/attend_web_dev.py) = รับเว็บจำลองในเครื่อง
   var PAGE = (location.pathname.match(/[^/]*$/) || [""])[0] || "index.html";
+  var UA = navigator.userAgent || "";
+  var IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var STANDALONE = navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  // เปิดอยู่ในแอพอื่น (ที่เก็บของหน้าในแอพนั้นแยกจากเบราว์เซอร์ และอาจหายตอนปิด)
+  var IN_APP = /\bLine\/\d/.test(UA) && !/LIFF/.test(UA) ? "LINE" : /\bFB[\w_]+\/|\bFacebook|Messenger/i.test(UA) ? "Facebook" : /\bInstagram/i.test(UA) ? "Instagram" : "";
+
+  /* ไฟล์บอกชื่อ/ไอคอนแอพ (manifest)
+     Android/คอม: ไฟล์ปกติ (ไอคอนเปิดหน้าแรก ./ — ใช้ที่เก็บเดียวกับ Chrome อยู่แล้ว · ห้ามใส่ลิงก์ส่วนตัวในหน้าแรก: Chrome ส่งข้อมูลไอคอนไปเก็บที่ Google)
+     iPhone/iPad: ไอคอนบนหน้าจอมีที่เก็บแยกจาก Safari (เริ่มว่าง) → ใช้ไฟล์ที่ไม่ระบุหน้าแรก = ไอคอนเปิดหน้าที่กดเพิ่มไว้ รวม #o= (ใส่ลิงก์ให้เอง)
+       iPhone อ่านไฟล์นี้ครั้งเดียวต่อหน้า แล้วจำที่อยู่หน้าตอนอ่านเสร็จ → ใส่หลังเติม #o= แล้วเท่านั้น (ดู boot) */
+  function addManifest() {
+    if (document.querySelector('link[rel="manifest"]')) return;
+    var l = document.createElement("link");
+    l.rel = "manifest";
+    l.href = IOS ? "manifest-ios.webmanifest" : "manifest.webmanifest";
+    document.head.appendChild(l);
+  }
+  if (!IOS) addManifest();
   // เปิดแอพซ้อนอีกหน้าต่าง (คอม / iPad) — หน้าใหม่สุดใช้ได้หน้าเดียว · หน้าเก่าหยุดส่งและหยุดเขียน (ไม่งั้นเลขลำดับในที่เก็บย้อนได้)
   var STALE = false, STALE_MSG = "แอพนี้เปิดอยู่อีกหน้าต่าง — ใช้หน้าต่างล่าสุด หรือแตะเพื่อใช้หน้านี้แทน";
 
@@ -408,19 +427,40 @@
   /* ลิงก์เจ้าของ: https://script.google.com/macros/s/<รหัสเว็บ>/exec?k=<รหัสเจ้าของ> (วางทั้งข้อความก็ได้)
      หรือพิมพ์แค่รหัสเจ้าของ → ใช้เว็บเวลาทำงานของร้าน (ATT_URL) · ถามเลขรุ่นด้วยรหัสนั้นก่อน ผ่าน = จำไว้
      เว็บแอพที่วางบนเว็บสาธารณะไม่ใส่ ATT_URL (ลิงก์นั้นเปิดดูเวลา/ยอดเบิกพนักงานได้โดยไม่ต้องมีรหัส) → ต้องวางทั้งลิงก์ */
+  // ลิงก์เจ้าของ → { url, key } · ไม่ใช่ = null (เว็บ Google เท่านั้น — บนคอมรับเว็บจำลองในเครื่องด้วย)
+  function ownerOf(text) {
+    var u = null;
+    try { u = new URL(String(text).replace(/[.,)"']+$/, "")); } catch (e) { return null; }
+    var host = u.hostname, okHost = host === "script.google.com" || (DEV && (host === "localhost" || host === "127.0.0.1"));
+    var key = (u.searchParams.get("k") || "").trim(), url = u.origin + u.pathname;
+    return okHost && /\/exec$/.test(url) && key ? { url: url, key: key } : null;
+  }
+  // เว็บของร้านไหม: แฮชรหัสเว็บตรงกับที่ใส่ตอนสร้าง (บนคอม = เว็บจำลองผ่าน) — กันลิงก์ปลอมที่ชี้ไปเว็บคนอื่น
+  function ours(url) {
+    if (DEV) return Promise.resolve(true);
+    var m = /\/s\/([^/]+)\/exec$/.exec(url);
+    if (!m || !window.crypto || !crypto.subtle || !window.TextEncoder) return Promise.resolve(false);
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(m[1])).then(function (d) {
+      return Array.prototype.map.call(new Uint8Array(d), function (x) { return (x < 16 ? "0" : "") + x.toString(16); }).join("") === DEP_HASH;
+    }, function () { return false; });
+  }
+  // ขอไม่ให้มือถือล้างที่เก็บเอง (iPhone ให้เฉพาะแอพที่เปิดจากไอคอน) · ได้แล้วไม่ขอซ้ำ
+  function keepStore() {
+    try {
+      var sm = navigator.storage;
+      if (sm && sm.persist && sm.persisted) sm.persisted().then(function (p) { return p || sm.persist(); }).catch(function () {});
+    } catch (e) {}
+  }
   async function setLink(text) {
     var t = String(text || "").trim();
     var orKey = ATT_URL ? " — หรือพิมพ์แค่รหัสเจ้าของก็ได้" : "";
     if (!t) return fail(ATT_URL ? "ยังไม่ได้วางลิงก์ / พิมพ์รหัส" : "ยังไม่ได้วางลิงก์เจ้าของ");
     var url = ATT_URL, key = t, m = t.match(/https?:\/\/\S+/);
     if (m) {
-      var u = null;
-      try { u = new URL(m[0].replace(/[.,)"']+$/, "")); } catch (e) {}
-      var host = u ? u.hostname : "";
-      var okHost = host === "script.google.com" || (DEV && (host === "localhost" || host === "127.0.0.1"));
-      key = u ? (u.searchParams.get("k") || "").trim() : "";
-      url = u ? u.origin + u.pathname : "";
-      if (!okHost || !/\/exec$/.test(url) || !key) return fail("ลิงก์นี้ไม่ใช่ลิงก์เจ้าของ (ต้องมี ?k= ต่อท้าย)" + orKey);
+      var o = ownerOf(m[0]);
+      if (!o) return fail("ลิงก์นี้ไม่ใช่ลิงก์เจ้าของ (ต้องมี ?k= ต่อท้าย)" + orKey);
+      url = o.url; key = o.key;
+      if (!(await ours(url))) return fail("ลิงก์นี้ไม่ใช่ของเว็บเวลาทำงานร้านเรา — ขอลิงก์เจ้าของจากหน้าเว็บเวลาทำงาน");
     } else if (!ATT_URL) {
       return fail("วางลิงก์เจ้าของทั้งลิงก์ (ขึ้นต้น https://script.google.com… ลงท้าย ?k=…) — แบบเว็บแอพพิมพ์แค่รหัสไม่ได้");
     } else if (t.indexOf(" ") >= 0 || t.length < 6 || t.length > 64) {
@@ -431,7 +471,7 @@
       if (!b(r, "ok")) return fail(s(r, "error").indexOf("รหัสเจ้าของ") >= 0 ? "รหัสเจ้าของไม่ถูกต้อง — ตรวจรหัสอีกครั้ง" : s(r, "error"));
       await St.setLink(url, key);
       forceSync();
-      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}   // ขอไม่ให้ iPhone ล้างที่เก็บเอง
+      keepStore();
       return ok();
     } catch (e) {
       if (e instanceof Offline) return fail("ไม่มีอินเทอร์เน็ต — ต่อเน็ตแล้วกดใหม่");
@@ -532,14 +572,54 @@
     }
     if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
   }
+  /* ลิงก์ส่วนตัว = ที่อยู่หน้า + #o=<ลิงก์เจ้าของแบบ base64url> (base64 ไม่ใช่การซ่อน — ใครได้ที่อยู่นี้ = ได้สิทธิ์เจ้าของ)
+     ใส่ในที่อยู่เฉพาะหน้าแอพใน Safari ของ iPhone: ตอนกด แชร์ → เพิ่มไปยังหน้าจอโฮม ไอคอนจำที่อยู่นี้ (ที่เก็บของไอคอนแยกจาก Safari และเริ่มว่าง)
+       ที่อื่น (Android/คอม/แอพอื่น/ในไอคอนเอง) = ลบออกจากที่อยู่ (Chrome เก็บที่อยู่ในประวัติ/ซิงก์ขึ้น Google)
+     เปิดที่อยู่ที่มี #o= ตอนที่เก็บว่าง: ในไอคอน iPhone = ใส่ให้เลย · ที่อื่น = ใส่ในช่องวางลิงก์ ให้กด เริ่มใช้งาน เอง (ตรวจกับเว็บ)
+     รับเฉพาะลิงก์ของเว็บร้าน (ours) · ส่วนหลัง # ไม่ถูกส่งไปที่เว็บ GitHub · ที่เก็บมีลิงก์อยู่แล้ว = ใช้ของที่เก็บ */
+  function b64u(t) { return btoa(unescape(encodeURIComponent(t))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function hashLink() {
+    var m = /^#(?:.*&)?o=([A-Za-z0-9_-]+)(?:&|$)/.exec(location.hash);
+    if (!m) return null;
+    try { return ownerOf(decodeURIComponent(escape(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))))); } catch (e) { return null; }
+  }
+  function ownHash() { var l = St.link(); return l ? "#o=" + b64u(l.url + "?k=" + encodeURIComponent(l.key)) : ""; }
+  function noHash() { try { history.replaceState(history.state, "", location.pathname + location.search); } catch (e) {} }
+  function markHash() {
+    var want = IOS && !STANDALONE && !IN_APP && PAGE === "app.html" ? ownHash() : "";
+    var h = want || /^#(?:.*&)?o=/.test(location.hash) ? want : location.hash;
+    if (location.hash !== h) try { history.replaceState(history.state, "", location.pathname + location.search + h); } catch (e) {}
+  }
+  // หน้าวางลิงก์ที่มาพร้อม #o= (ที่เก็บว่าง): ใส่ในช่องให้ (ของเว็บร้านเท่านั้น) แล้วลบออกจากที่อยู่
+  function prefill() {
+    var h = hashLink();
+    if (!h) { if (/^#(?:.*&)?o=/.test(location.hash)) noHash(); return; }
+    ours(h.url).then(function (ok) {
+      function put() {
+        var t = document.getElementById("t");
+        if (ok && t && !t.value) t.value = h.url + "?k=" + h.key;
+        noHash();
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", put); else put();
+    });
+  }
   function boot(n) {
     init().then(function () {
+      var h = IOS && STANDALONE && !St.link() && hashLink();
+      return h ? ours(h.url).then(function (ok) { return ok ? St.setLink(h.url, h.key) : null; }) : null;
+    }).then(function () {
       var d = document.getElementById("wcErr");
       if (d) d.parentNode.removeChild(d);
       var has = !!St.link();
-      if (PAGE === "app.html" && !has) { location.replace("setup.html"); return; }
-      if (PAGE === "setup.html" && has && !/[?&]change=1/.test(location.search)) { location.replace("app.html"); return; }
-      if (PAGE === "index.html") { location.replace(has ? "app.html" : "setup.html"); return; }
+      if (has) markHash();
+      if (has && STANDALONE) keepStore();
+      var ext = document.querySelector("a[data-ext]");   // ปุ่มเปิดในเบราว์เซอร์ (ขึ้นก่อนอ่านที่เก็บเสร็จ) — ใส่ลิงก์ส่วนตัวที่อ่านได้แล้ว
+      if (ext) ext.href = extUrl();
+      if (PAGE === "app.html" && !has) { location.replace("setup.html" + location.hash); return; }
+      if (PAGE === "setup.html" && has && !/[?&]change=1/.test(location.search)) { location.replace("app.html" + location.hash); return; }
+      if (PAGE === "index.html") { location.replace((has ? "app.html" : "setup.html") + location.hash); return; }
+      if (PAGE === "setup.html" && !has) prefill();
+      addManifest();
       if (PAGE === "app.html") startLoop();
     }, function (e) {
       bootErr("เปิดที่เก็บในมือถือไม่ได้ — ถ้าเปิดแบบส่วนตัว (Private) ให้เปิดแบบปกติ" + (e && e.message ? " (" + e.message + ")" : ""));
@@ -596,19 +676,52 @@
     } catch (e) {}
   }
 
-  // หน้าวางลิงก์: เปิดใน Safari (ยังไม่ได้เพิ่มไปยังหน้าจอโฮม) = บอกให้ติดตั้งก่อน — ไอคอนบนหน้าจอมีที่เก็บแยกจาก Safari
-  if (PAGE === "setup.html") document.addEventListener("DOMContentLoaded", function () {
-    var standalone = navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
-    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (standalone || !ios) return;
+  // ที่อยู่หน้านี้ (มี #o= แล้ว) + ?openExternalBrowser=1 ก่อน # — ปุ่มเปิดในเบราว์เซอร์ของ LINE
+  function extUrl() { return location.pathname + location.search + (location.search ? "&" : "?") + "openExternalBrowser=1" + ownHash(); }
+  // แถบล่างจอ ปิดได้ (ปิดแล้วไม่ขึ้นอีกจนปิดแอพ/แท็บ)
+  function bar(id, html) {
+    document.addEventListener("DOMContentLoaded", function () {
+      try { if (sessionStorage.getItem(id)) return; } catch (e) {}
+      var d = document.createElement("div");
+      d.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147483645;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fff7ed;color:#9a3412;border-top:1px solid #fdba74;font:400 14px/1.6 Prompt,sans-serif;box-shadow:0 -4px 16px rgba(0,0,0,.12)";
+      d.innerHTML = "<span data-x style='float:right;padding:0 4px 8px 12px;font-size:22px;line-height:1;cursor:pointer'>×</span>" + html;
+      document.body.appendChild(d);
+      var keep = document.body.style.paddingBottom;   // เว้นที่ด้านล่างหน้า — แถบไม่บังปุ่มบันทึกของแผ่นล่าง
+      function fit() { document.body.style.paddingBottom = d.parentNode ? d.offsetHeight + "px" : keep; }
+      fit();
+      window.addEventListener("resize", fit);
+      d.querySelector("[data-x]").onclick = function () { d.parentNode.removeChild(d); window.removeEventListener("resize", fit); fit(); try { sessionStorage.setItem(id, "1"); } catch (e) {} };
+      var a = d.querySelector("a[data-ext]");
+      if (a) { a.href = extUrl(); a.onclick = function () { a.href = extUrl(); }; }
+    });
+  }
+
+  /* เปิดอยู่ในแอพอื่น (LINE / Facebook / Instagram) = ที่เก็บของหน้าในแอพนั้นแยกจากเบราว์เซอร์ และอาจหายตอนปิด → ชวนเปิดในเบราว์เซอร์
+     LINE: ต่อท้าย ?openExternalBrowser=1 = LINE เปิดในเบราว์เซอร์ของมือถือให้ (#o= ติดไปด้วย = ใส่ลิงก์ให้เอง — ถ้าไม่ติด วางในเบราว์เซอร์ครั้งเดียว) */
+  if (IN_APP && (PAGE === "setup.html" || PAGE === "app.html")) {
+    bar("wcInApp", "<b>เปิดอยู่ในแอพ " + IN_APP + "</b> — ปิดแล้วแอพอาจลืมลิงก์ ต้องวางใหม่<br>"
+      + (IN_APP === "LINE"
+        ? "<a data-ext style='display:inline-block;margin-top:6px;padding:8px 16px;border-radius:999px;background:#c2410c;color:#fff;font-weight:600;text-decoration:none'>เปิดในเบราว์เซอร์</a>"
+        : "กด <b>⋯</b> มุมขวาบน → <b>เปิดในเบราว์เซอร์</b> (อย่ากด คัดลอกลิงก์/แชร์)"));
+  }
+
+  /* iPhone เปิดใน Safari (ยังไม่ได้เปิดจากไอคอน) — ไอคอนบนหน้าจอมีที่เก็บแยกจาก Safari
+     วางลิงก์ก่อน แล้วค่อยเพิ่มลงหน้าจอจากหน้าแอพ = ไอคอนเปิดหน้าแอพพร้อม #o= → ใส่ลิงก์ให้เอง */
+  if (IOS && !STANDALONE && !IN_APP && PAGE === "setup.html") document.addEventListener("DOMContentLoaded", function () {
     var box = document.querySelector(".box"), h = box && box.querySelector("h1");
     if (!h) return;
     var d = document.createElement("div");
     d.style.cssText = "margin:12px 0 4px;padding:12px 14px;border-radius:14px;border:1px solid #fdba74;background:rgba(251,146,60,.12);font-size:14px;font-weight:400;line-height:1.6";
-    d.innerHTML = "<b>📲 ติดตั้งลงหน้าจอก่อน</b>"
-      + "<ol><li>กดปุ่ม <b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น) ของ Safari</li><li>เลือก <b>เพิ่มไปยังหน้าจอโฮม</b> → กด <b>เพิ่ม</b></li>"
-      + "<li>ปิด Safari แล้ว<b>เปิดจากไอคอน ⏱️ บนหน้าจอ</b> → วางลิงก์ในนั้น</li></ol>"
-      + "<small>วางลิงก์ใน Safari ตรงนี้ ไอคอนบนหน้าจอจะไม่รู้ลิงก์ (iPhone แยกที่เก็บกัน)</small>";
+    d.innerHTML = "<b>📲 ลงแอพในหน้าจอ (ทำครั้งเดียว)</b>"
+      + "<ol><li>วางลิงก์เจ้าของด้านล่าง → กด <b>เริ่มใช้งาน</b></li>"
+      + "<li>พอเข้าแอพแล้ว กดปุ่ม <b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น — ไม่เห็นให้กด <b>•••</b> ก่อน) → <b>เพิ่มไปยังหน้าจอโฮม</b> → กด <b>เพิ่ม</b></li>"
+      + "<li>ต่อไปเปิดจากไอคอน ⏱️ บนหน้าจอ — ไอคอนจำลิงก์ให้เอง</li></ol>"
+      + "<small>ถ้าไอคอนยังถามลิงก์ ให้วางในไอคอนอีกครั้งเดียว (iPhone แยกที่เก็บของไอคอนกับ Safari)<br>"
+      + "ในหน้าแชร์ กดแค่ เพิ่มไปยังหน้าจอโฮม — ห้ามกดส่ง/คัดลอก (ที่อยู่หน้าแอพมีลิงก์เจ้าของติดอยู่)</small>";
     h.parentNode.insertBefore(d, h.nextSibling);
   });
+  if (IOS && !STANDALONE && !IN_APP && PAGE === "app.html") {
+    bar("wcAddHome", "<b>📲 ลงแอพในหน้าจอ:</b> กด <b>แชร์</b> (ไม่เห็นให้กด <b>•••</b> ก่อน) → <b>เพิ่มไปยังหน้าจอโฮม</b> → <b>เพิ่ม</b> แล้วเปิดจากไอคอน ⏱️ (ไอคอนจำลิงก์ให้เอง)<br>"
+      + "<small>ในหน้าแชร์ กดแค่ เพิ่มไปยังหน้าจอโฮม — ห้ามกดส่ง/คัดลอก (ที่อยู่หน้านี้มีลิงก์เจ้าของ)</small>");
+  }
 })();

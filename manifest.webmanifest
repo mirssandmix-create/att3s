@@ -2,6 +2,7 @@
   "name": "เวลาทำงาน 3ส.",
   "short_name": "เวลาทำงาน",
   "lang": "th",
+  "id": "/att3s/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
