@@ -8,7 +8,7 @@
    สร้างหน้าเว็บแอพ: python tools/build_attend_web.py (ใส่เลขรุ่น + ลิงก์เว็บเวลาทำงานของร้านให้ตอนสร้าง) */
 (function () {
   "use strict";
-  var VERSION = "2026.11.01-231739", ATT_URL = "";
+  var VERSION = "2026.11.03-132432", ATT_URL = "";
   var DEP_HASH = "a3b813398c2a85100869816cc7f5c9342f407ac7791fe98fc63279dab7e0a7bb";   // SHA-256 ของรหัสเว็บเวลาทำงานของร้าน (ตัวรหัสไม่อยู่ในไฟล์สาธารณะ) — รับเฉพาะลิงก์เจ้าของของเว็บนี้
   var DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // ลองบนคอม (tools/attend_web_dev.py) = รับเว็บจำลองในเครื่อง
   var PAGE = (location.pathname.match(/[^/]*$/) || [""])[0] || "index.html";

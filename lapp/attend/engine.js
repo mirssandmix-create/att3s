@@ -1,5 +1,5 @@
 /* แอพเวลาทำงาน: ตัวคิดเบื้องหลังไฟล์เดียว — สร้างด้วย tools/sync_attend.py จาก ShopPOS www/lapp (ห้ามแก้ตรง ๆ) */
-/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · 20d5253b14 */
+/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · e5efb2dfe0 */
 self.LAPP_APP = {
   okResult: function (r) { return !(r && typeof r === "object" && r.ok === false); },   // api() ไม่สำเร็จ = ไม่ส่งขึ้นเว็บ
   relocate: function (fn, a) { if (fn === "api" && a) posRelocate_(a[0], a[1]); },   // แถวเลื่อน (ปิดยอดแล้ว) = หาแถวใหม่ก่อนคิดซ้ำ
@@ -473,7 +473,7 @@ onmessage = function (e) {
 
 ;
 /* ---- code.js ---- */
-/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · 20d5253b14 */
+/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · e5efb2dfe0 */
 // ═══════════════════════════════════════════════════════════════════
 // 3S Sukcharoen Recycle — Web App  v1.0
 // ไฟล์ 00: ค่าตั้งต้นทั้งหมด  (แก้ที่นี่ที่เดียว)
@@ -530,14 +530,20 @@ var PAY_ON_SUSPEND   = false;
 var PAY_ON_SICKLEAVE = true;
 var PAY_FORGOT_CLOCK = true;
 
-var LATE_AFTER   = "08:10";  // เข้าหลังเวลานี้ = มาสาย (= โดนหักสาย ตั้งแต่ RULE_Q_FROM) · เดิม 08:05
+var LATE_AFTER   = "08:05";  // เข้าหลังเวลานี้ = มาสาย (= โดนหักสาย ตั้งแต่ RULE_Q_FROM) · 1 พ.ย. 2569 กลับเป็น 08:05 (เข้า 08:06 = หัก 20)
+// [1 พ.ย. 2569] เวลาต่างนิดเดียวแต่ค่าแรงหายเป็นก้อน (ชม.ไม่ถึง 9 = ค่าแรงไม่เต็มวัน) — ตั้งแต่ RULE_Q_FROM:
+//   เข้าไม่เกิน GRACE_IN = นับชั่วโมงตั้งแต่ 08:00 (สาย 08:06–08:10 หักแค่ค่าสาย ได้เต็มวัน) · หลัง GRACE_IN = นับตามเวลาจริง
+//   ออกตั้งแต่ GRACE_OUT ถึง 18:00 = นับถึง 18:00 · ต้องตรงกับสคริปต์ในชีต (calcWorkHours_ / autoUpdateDailySummaryCore_)
+var GRACE_IN     = "08:10";
+var GRACE_OUT    = "17:55";
+var WORK_END     = "18:00";
 var WORK_START   = "08:00";  // มาก่อนเวลานี้ ให้เริ่มนับที่ 08:00
 var BREAK_START  = "12:00";
 var BREAK_END    = "13:00";
 
 // ── กติกาใหม่ 15 ต.ค. 2569 (ต้องตรงกับสคริปต์ในชีต) — ใช้กับวันที่ตั้งแต่ RULE_Q_FROM ──
 //   ชม.ทำงาน ปัดลงทีละ 15 นาที: เศษ 0–14 นาที = .00 · 15–29 = .25 · 30–44 = .5 · 45–59 = .75
-//   สายเกิน 10 นาที (เข้าหลัง LATE_AFTER) หัก FINE_LATE · เลิกก่อน EARLY_BEFORE หัก FINE_EARLY
+//   สายเกิน 5 นาที (เข้าหลัง LATE_AFTER) หัก FINE_LATE · เลิกก่อน EARLY_BEFORE หัก FINE_EARLY
 //   ใช้กับทุกคน ทุกประเภทค่าจ้าง · วันก่อน RULE_Q_FROM คิดแบบเดิม (ปัดครึ่งชั่วโมง ไม่หัก) งวดเก่ายอดไม่เปลี่ยน
 var RULE_Q_FROM  = "2026-10-16";
 var FINE_LATE    = 20;
@@ -587,7 +593,7 @@ var LOCK_TIME_ON_OPEN_DAY = false;
 //   ⚠️ แก้ลิสต์นี้แล้วต้อง Deploy เป็น "New version" ถึงจะมีผล
 // [v10] เลิกแยกแท็บคนพิเศษแล้ว — ทุกคนอยู่ในดูรายวัน/ประวัติ/รายบุคคลรวมกัน
 //   (อยากแยกกลับ: ใส่รหัสคืน เช่น ["56", "69", "52", "99", "1", "2", "3", "4"])
-var SPECIAL_IDS = [];
+var SPECIAL_IDS = ["901", "902"];   // 1 พ.ย. 2569: คนจดสาขา 2 (Joe, Mr.Ando) — แยกจากคนงาน เช็คชื่อตอนเช้าที่โปรแกรมร้าน · เบิกได้เหมือนคนงาน
 
 function setOwnerKey(key) {
   // รันได้จาก Apps Script editor เท่านั้น — เรียกผ่าน google.script.run จากหน้าเว็บ (ไม่ได้ล็อกอิน) จะไม่มีอีเมล
@@ -731,9 +737,11 @@ function calcWorkHours_(dateStr, cIn, cOut) {
   var tOut = new Date(dateStr + "T" + cOut + ":00");
   if (isNaN(tIn.getTime()) || isNaN(tOut.getTime())) return 0;
 
-  // มาก่อน 08:00 → เริ่มนับที่ 08:00
+  // มาก่อน 08:00 → เริ่มนับที่ 08:00 · ตั้งแต่ RULE_Q_FROM เข้าไม่เกิน GRACE_IN ก็นับ 08:00 · ออก GRACE_OUT–18:00 นับถึง 18:00 (ดู รหัส.gs)
   var t8 = new Date(dateStr + "T" + WORK_START + ":00");
-  if (tIn < t8) tIn = t8;
+  var grace = toDateStr_(dateStr) >= RULE_Q_FROM;
+  if (tIn < t8 || (grace && cIn <= GRACE_IN)) tIn = t8;
+  if (grace && cOut >= GRACE_OUT && cOut < WORK_END) tOut = new Date(dateStr + "T" + WORK_END + ":00");
 
   // กะดึก: บวก 24 ชม. เฉพาะ "เข้าตั้งแต่เที่ยง และออกก่อน 06:00"
   if (tOut <= tIn) {

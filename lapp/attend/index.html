@@ -2,7 +2,7 @@
 <html>
 <head><script>try{window.ShopAndroid=parent.ShopAndroid}catch(e){}</script><meta name="format-detection" content="telephone=no"><meta name="robots" content="noindex,nofollow"><style>@supports (-webkit-touch-callout:none){body *{cursor:pointer}}</style>
 <base target="_blank">
-<script>/* ต่อกับตัวโปรแกรม ShopPOS (tools/lapp-sync.py) · 20d5253b14 */
+<script>/* ต่อกับตัวโปรแกรม ShopPOS (tools/lapp-sync.py) · e5efb2dfe0 */
 var LAPP_CFG = { app: "attend", worker: "worker.js", badge: "lappSt",
   writes: ["api"], online: [],
   isWrite: function (fn, a) { return fn === "api" && ["time.saveRows", "time.addAdv", "time.delAdv", "time.editAdv", "time.closeDay"].indexOf(a && a[0]) >= 0; },
@@ -401,6 +401,8 @@ call("time.bootstrap",{withDay:true}).then(function(b){
   el("sub").textContent="พนักงาน "+b.employees.length+" คน";
   if(!b.canMonth) el("tabM").style.display="none";
   if(!b.canDay)   el("tabD").style.display="none";
+  // ⭐ มีคนพิเศษ (SPECIAL_IDS) = โชว์แท็บ — เดิมซ่อนตลอดตั้งแต่ v10 คนจดสาขา 2 (901/902) เลยหายจากทุกแท็บ (2 พ.ย. 2569)
+  if(b.canDay && (b.special||[]).length) el("tabS").style.display="";
   if(!b.canMonth && !b.canDay) document.querySelector(".tabs").style.display="none";
   setTab(b.canDay ? "day" : "person");        // ลูกน้องไม่มีสิทธิ์ดูรายวัน → เด้งไปรายบุคคล
   el("emp").innerHTML='<option value="">— เลือกพนักงาน —</option>'+b.employees.map(function(e){
