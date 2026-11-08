@@ -49,6 +49,12 @@ window.appBack=function(){try{
  if(typeof w.appBackInner==='function'&&w.appBackInner())return true;
  if(/index\.html$/.test(page())){if(leaveFull(w))w.location.href='lapp/attend/m.html';return true}
 }catch(e){}return false};
+/* หน้าว่างพอจะโหลดหน้าแอพรุ่นใหม่ (WebUpdate) — ไม่มีหน้าต่าง/กล่องถาม/หน้าคนเปิด · หน้าเต็ม = ไม่มีที่แก้ค้าง */
+window.appIdle=function(){try{
+ const w=W();if(/index\.html$/.test(page()))return !unsaved(w);
+ const d=w.document,on=id=>{const e=d.getElementById(id);return !!(e&&e.classList.contains('on'))};
+ return !on('sheet')&&!on('dlg')&&!on('person')&&!on('zm');
+}catch(e){return false}};
 /* ตัวแอพได้ชีตชุดใหม่ / กลับเข้าแอพ → ให้หน้าถามสถานะเลย (ไม่ต้องรอรอบ 3 วิ) */
 window.appChanged=function(){try{const w=W();if(w.LAPP&&w.LAPP.poll)w.LAPP.poll()}catch(e){}};
 /* กดแจ้งเตือน: fail = เปิดรายการส่งไม่ผ่าน · link = หน้าวางลิงก์ใหม่ · pclink = คอมส่งลิงก์เจ้าของมาทางสาย USB → หน้า setup ตรวจกับเว็บเลย */

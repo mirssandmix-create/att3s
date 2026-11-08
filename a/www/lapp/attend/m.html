@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<!-- แอพเวลาทำงาน 3ส. (มือถือ · เจ้าของ/คนจ่ายเงิน) — หน้าของแอพเอง (ไม่ได้มาจากเว็บ)
+     คิดในเครื่องด้วยโค้ดเว็บชุดเดียวกับโปรแกรมร้าน (engine.js) ผ่าน api(คำสั่ง, ข้อมูล) แบบเดียวกับหน้าเว็บ
+     แก้ (เบิก/แก้เวลา) = ขึ้นทันทีในเครื่อง แล้วตัวแอพส่งขึ้นเว็บเบื้องหลัง · เว็บไม่รับ = เด้งบอก + กดทำใหม่ได้ (เก็บรูปไว้) -->
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>เวลาทำงาน 3ส.</title>
+<link rel="stylesheet" href="../../fonts/fonts.css">
+<script>
+var LAPP_CFG = { app: "attend", worker: "worker.js", badge: "lappSt",
+  writes: ["api"], online: [],
+  isWrite: function (fn, a) { return fn === "api" && WRITES.indexOf(a && a[0]) >= 0; },
+  label: function (fn, a) { return labelOf(a); },
+  onRebase: function () { onRebase(); },
+  onFail: function (list, clicked) { showFails(clicked); } };
+/* คำสั่งแก้ไข (ROUTES ที่ write: true ใน 90_api.gs) — tools/sync_attend.py เช็คว่าตรงกับหน้าเต็ม */
+var WRITES = ["time.saveRows", "time.addAdv", "time.delAdv", "time.editAdv", "time.closeDay", "time.setHomeBranch"];
+</script>
+<script src="engine-boot.js"></script>
+<script src="../client.js"></script>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--in:#f9fafb;--ac:#c2410c;--ac2:#fff7ed;--acT:#9a3412;
+ --pay:#15803d;--payBg:#f0fdf4;--adv:#b91c1c;--advBg:#fef2f2;--warn:#92400e;--warnBg:#fffbeb;--sh:0 1px 2px rgba(0,0,0,.05);--fs:15px}
+:root[data-theme=dark]{--bg:#0d0f12;--card:#16191d;--tx:#e5e7eb;--mu:#9ca3af;--bd:#2a2f36;--in:#0f1215;--ac:#ea580c;--ac2:#2a1609;--acT:#fdba74;
+ --pay:#4ade80;--payBg:#0f2418;--adv:#f87171;--advBg:#2a1212;--warn:#fcd34d;--warnBg:#2a2210;--sh:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0d0f12;--card:#16191d;--tx:#e5e7eb;--mu:#9ca3af;--bd:#2a2f36;--in:#0f1215;--ac:#ea580c;--ac2:#2a1609;--acT:#fdba74;
+ --pay:#4ade80;--payBg:#0f2418;--adv:#f87171;--advBg:#2a1212;--warn:#fcd34d;--warnBg:#2a2210;--sh:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:var(--fs)}
+body{margin:0;background:var(--bg);color:var(--tx);font:600 1rem/1.5 Prompt,"Noto Sans Thai",sans-serif;padding-bottom:40px}
+button,input,select,textarea{font:inherit;color:inherit}
+button,[data-act]{cursor:pointer}   /* iPhone ส่งการแตะให้เฉพาะของที่ดูกดได้ (ชื่อพนักงาน = div) */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 12px 6px;border-bottom:1px solid var(--bd)}
+.r1{display:flex;align-items:center;gap:8px}
+.r1 h1{font-size:1.15rem;font-weight:700;margin:0;flex:1;white-space:nowrap}
+#lappSt{font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--card);border:1px solid var(--bd);color:var(--mu);max-width:52vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lappSt.wait{color:var(--warn);background:var(--warnBg);border-color:transparent}
+#lappSt.bad{color:var(--adv);background:var(--advBg);border-color:transparent}
+#lappSt.off{color:var(--mu)}
+.ib{width:40px;height:40px;border-radius:12px;border:1px solid var(--bd);background:var(--card);font-size:1.2rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.r2{display:flex;align-items:center;gap:8px;margin-top:8px}
+.day{flex:1;height:44px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700;font-size:1rem;position:relative;overflow:hidden}
+.day small{color:var(--ac);font-weight:700;margin-left:4px}
+.day input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
+.r3{display:flex;gap:8px;margin-top:8px}
+.srch{flex:1;height:42px;border-radius:999px;border:1px solid var(--bd);background:var(--card);padding:0 16px;outline:none}
+.flt{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.flt::-webkit-scrollbar{display:none}
+.pill{flex:none;border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:6px 14px;font-size:.88rem;font-weight:600;color:var(--mu)}
+.pill.on{background:var(--ac);border-color:var(--ac);color:#fff}
+main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (กรองสาขา) = จอไม่เด้งขึ้นเอง */
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.sum div{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:8px 10px;box-shadow:var(--sh)}
+.sum b{display:block;font-size:1.05rem;font-weight:700}
+.sum span{font-size:.75rem;color:var(--mu);font-weight:500}
+.sum .p b{color:var(--pay)} .sum .a b{color:var(--adv)}
+/* กล่องเลือกสาขา (แบบหน้าเวลาทำงานในคอม/เว็บ 8 พ.ย.) · ห้ามกระตุก: 4 ช่องคงที่ (ไม่มี "ไม่แยกสาขา" = ช่องว่าง ไม่ขยายกล่องอื่น)
+   เลือกแล้วกรอบเข้มแบบเงาใน (ขนาดไม่เปลี่ยน) · ขนาดตัวหนังสือในกล่องไม่โตตามตัวหนังสือใหญ่ + บรรทัดล่างสูงตายตัว 2 บรรทัด = สูงเท่ากันทุกวัน */
+.brs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:1px;font-size:min(1rem,15px)}
+.brb{min-width:0;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:7px 6px;box-shadow:var(--sh);font-size:inherit}
+.brb .brT{font-size:.72em;line-height:1.25;color:var(--mu);font-weight:600}   /* จอแคบมาก = ขึ้นบรรทัดใหม่ (ขึ้นกับขนาดจอ ไม่ใช่ข้อมูล = ไม่กระตุก) */
+.brb .brN{font-size:1.1em;font-weight:700;white-space:nowrap}
+.brb .brN small{font-size:.655em;color:var(--mu);font-weight:500}
+.brb .brS{font-size:.68em;line-height:1.3;height:2.6em;overflow:hidden;color:var(--mu);font-weight:500}
+.brb .brS span{white-space:nowrap}
+.brb.on{border-color:var(--ac);box-shadow:inset 0 0 0 1px var(--ac);background:var(--ac2)}
+.brb.on .brT{color:var(--acT)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:12px 12px 10px;margin-bottom:10px;box-shadow:var(--sh)}
+:root{--doneBg:#f1f5f9;--doneBd:#cbd5e1;--doneBar:#64748b;--offBg:#eff6ff;--offBd:#bfdbfe;--offBar:#3b82f6}
+:root[data-theme=dark]{--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}}
+.card.done{background:var(--doneBg);border-color:var(--doneBd);box-shadow:inset 4px 0 0 var(--doneBar)}
+.card.off{background:var(--offBg);border-color:var(--offBd);box-shadow:inset 4px 0 0 var(--offBar)}
+.card.done .b.ed,.card.off .b.ed{background:var(--card)}
+.tag{flex:none;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;align-self:center}
+.tag.done{background:var(--doneBar);color:#fff}
+.ch{display:flex;align-items:flex-start;gap:8px}
+.nm{flex:1;font-size:1.08rem;font-weight:700;line-height:1.35}
+.nm .id{font-size:.78rem;color:var(--mu);font-weight:500;margin-left:4px}
+.nm .go{font-size:.8rem;color:var(--mu);margin-left:2px}
+.st{flex:none;font-size:.8rem;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--in);border:1px solid var(--bd);white-space:nowrap}
+.st.ok{background:var(--payBg);color:var(--pay);border-color:transparent}
+.st.late{background:var(--warnBg);color:var(--warn);border-color:transparent}
+.st.no{background:var(--advBg);color:var(--adv);border-color:transparent}
+.st.lv{background:#eff6ff;color:#1d4ed8;border-color:transparent}
+:root[data-theme=dark] .st.lv{background:#0f1b33;color:#93c5fd}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st.lv{background:#0f1b33;color:#93c5fd}}
+.tm{display:flex;gap:14px;margin-top:6px;color:var(--mu);font-size:.9rem;font-weight:500;flex-wrap:wrap}
+.tm b{color:var(--tx);font-weight:700;font-size:1rem}
+.tm .fl{color:var(--warn)}
+.mo{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;font-size:.88rem}
+.mo span{padding:2px 10px;border-radius:999px;font-weight:600}
+.mo .pay{background:var(--payBg);color:var(--pay)}
+.mo .adv{background:var(--advBg);color:var(--adv)}
+.mo .fine{background:var(--warnBg);color:var(--warn)}
+.mo .per{color:var(--mu);font-weight:500;padding:2px 0}
+.mo .per.neg{color:var(--adv);font-weight:700}
+.dn{margin-top:6px;font-size:.85rem;color:var(--mu);font-weight:500}
+.advs{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.al{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px dashed var(--bd);background:var(--advBg);border-radius:12px;padding:6px 10px;font-size:.9rem}
+.al b{color:var(--adv);font-weight:700}
+.al .m{flex:1;color:var(--mu);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al img,.al .noimg{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none}
+.al .noimg{display:flex;align-items:center;justify-content:center;background:var(--in);font-size:.9rem}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.b{height:46px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700;font-size:.98rem}
+.b.adv{background:var(--ac);border-color:var(--ac);color:#fff}
+.b.ed{background:var(--in)}
+.empty{text-align:center;color:var(--mu);padding:40px 10px;font-weight:500}
+.load{text-align:center;color:var(--mu);padding:60px 16px;font-weight:500}
+.load b{display:block;color:var(--tx);font-size:1.1rem;margin-bottom:6px}
+.banner{margin:10px 12px 0;padding:10px 14px;border-radius:14px;background:var(--advBg);color:var(--adv);font-weight:600;font-size:.9rem}
+.banner.w{background:var(--warnBg);color:var(--warn)}
+/* หน้าต่างล่าง */
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:40;display:none}
+#mask.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--card);border-radius:22px 22px 0 0;max-height:92vh;overflow-y:auto;
+ padding:8px 16px 20px;transform:translateY(105%);transition:transform .22s ease;border-top:1px solid var(--bd)}
+.sheet.on{transform:none}
+.grab{width:40px;height:4px;border-radius:4px;background:var(--bd);margin:4px auto 10px}
+.sheet h3{margin:0;font-size:1.2rem;font-weight:700}
+.sheet .sub{color:var(--mu);font-size:.88rem;font-weight:500;margin-top:2px}
+.lb{display:block;font-size:.85rem;color:var(--mu);font-weight:600;margin:14px 0 6px}
+.in{width:100%;height:48px;border-radius:14px;border:1px solid var(--bd);background:var(--in);padding:0 14px;outline:none;font-weight:600}
+.in:focus{border-color:var(--ac)}
+.in.big{height:64px;font-size:1.9rem;font-weight:700;text-align:center}
+.selw{position:relative}
+.selw::after{content:"";position:absolute;z-index:1;right:17px;top:50%;width:8px;height:8px;border-right:2px solid var(--mu);border-bottom:2px solid var(--mu);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.selw select.in{-webkit-appearance:none;appearance:none;padding-right:38px}
+summary b{color:var(--tx);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:600;font-size:.92rem}
+.chip.on{background:var(--ac2);border-color:var(--ac);color:var(--acT)}
+.perbox{margin-top:10px;background:var(--in);border:1px solid var(--bd);border-radius:14px;padding:8px 12px;font-size:.88rem;font-weight:500;color:var(--mu)}
+.perbox b{color:var(--tx);font-weight:700}
+.perbox .neg{color:var(--adv)}
+.ph{margin-top:14px;display:flex;gap:10px;align-items:stretch}
+.ph label.cam{flex:1;min-height:96px;border-radius:16px;border:1.5px dashed var(--ac);background:var(--ac2);color:var(--acT);display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:1.05rem;position:relative;overflow:hidden}
+.ph label.cam img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph label.cam .re{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:3px 10px;font-size:.8rem}
+.ph input{display:none}
+.lnk{display:inline-block;margin-top:8px;color:var(--mu);font-size:.85rem;font-weight:600;text-decoration:underline;background:none;border:0;padding:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mini{display:flex;gap:6px;margin-top:6px}
+.mini button{flex:1;height:34px;border-radius:10px;border:1px solid var(--bd);background:var(--card);font-size:.82rem;font-weight:600}
+.save{width:100%;height:54px;margin-top:18px;border:0;border-radius:16px;background:var(--ac);color:#fff;font-weight:700;font-size:1.08rem}
+.save:disabled{opacity:.55}
+.del{width:100%;height:46px;margin-top:10px;border:1px solid var(--bd);border-radius:14px;background:transparent;color:var(--adv);font-weight:700}
+.hint{font-size:.8rem;color:var(--mu);font-weight:500;margin-top:6px}
+.warn{margin-top:10px;padding:8px 12px;border-radius:12px;background:var(--warnBg);color:var(--warn);font-size:.85rem;font-weight:600}
+details{margin-top:14px;border:1px solid var(--bd);border-radius:14px;padding:4px 12px}
+summary{padding:8px 0;font-weight:600;color:var(--mu)}
+.mi{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px 4px;border:0;border-bottom:1px solid var(--bd);background:none;font-weight:600;font-size:1rem}
+.mi:last-child{border-bottom:0}
+.mi span{font-size:1.25rem;width:28px;text-align:center}
+.mi small{display:block;color:var(--mu);font-weight:500;font-size:.8rem}
+/* หน้าคน */
+#person{position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;display:none;padding-bottom:40px}
+#person.on{display:block}
+.ptop{position:sticky;top:0;background:var(--bg);padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;gap:10px;align-items:center;z-index:2}
+.ptop h2{margin:0;font-size:1.15rem;font-weight:700;flex:1;line-height:1.3}
+.ptop h2 small{display:block;font-size:.78rem;color:var(--mu);font-weight:500}
+.dc{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:10px 12px;margin-bottom:8px}
+.dc .dh{display:flex;gap:8px;align-items:center}
+.dc .dh b{flex:1;font-weight:700}
+.dc .acts{margin-top:8px}
+.dc .b{height:40px;font-size:.9rem}
+/* หน้าคนแบบตาราง (8 พ.ย. ผู้ใช้เลือกแบบ B จากตัวอย่าง — เดิมการ์ดทุกวันมีปุ่มส้มใหญ่ 2 ปุ่ม ยาว/รก/หมายเหตุเบิกถูกตัด)
+   หัวบอกยอดเหลือตลอด · งวด ‹ › แบบหน้าวัน · สรุปกล่องเดียว · ตารางทั้งงวด (หัวตารางค้างใต้หัวหน้า) · แตะวัน = หน้าต่างวันนั้น (ทุกอย่างของวัน + ปุ่ม) */
+.ptop h2 small b{font-weight:700;color:var(--tx)}
+.ptop h2 small b.neg{color:var(--adv)}
+.hbb2{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;max-width:40vw;height:44px;padding:0 12px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-size:.88rem;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden}
+.hbb2 small{font-size:.68rem;color:var(--mu);font-weight:500}
+.pper{display:flex;gap:8px;align-items:center}
+.pper .pl{flex:1;height:40px;display:flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700}
+.ib:disabled{opacity:.3}
+.psum{margin:10px 0;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:12px;box-shadow:var(--sh)}
+.pn{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pn span{color:var(--mu);font-size:.88rem;font-weight:600}
+.pn b{font-size:1.6rem;font-weight:700;line-height:1.2}
+.pn b.neg{color:var(--adv)}
+.pnx{text-align:right;font-size:.75rem;color:var(--adv);font-weight:600;margin-top:-2px}
+.p3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+.p3 div{background:var(--in);border-radius:12px;padding:6px 8px;min-width:0}
+.p3 span{display:block;font-size:.72rem;color:var(--mu);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p3 b{font-size:1rem;font-weight:700;white-space:nowrap}
+.p3 .g{color:var(--pay)} .p3 .r{color:var(--adv)}
+.pc{margin-top:8px;font-size:.82rem;color:var(--mu);font-weight:500}
+.d1{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-height:26px}
+.d1 .tt{font-weight:700;font-size:1.05rem}
+.d1 .tt .fl{color:var(--warn)}
+.d1 .hr{color:var(--mu);font-size:.85rem;font-weight:500}
+.d1 .dp{margin-left:auto;color:var(--pay);font-weight:700;font-size:1.02rem;white-space:nowrap}
+.d1 .dp small{color:var(--mu);font-weight:500;font-size:.72rem;margin-right:4px}
+.d2{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.d2 .st{font-size:.75rem;padding:1px 8px}
+.tg{font-size:.75rem;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--in);color:var(--mu);border:1px solid var(--bd);white-space:nowrap}
+.tg.fine{background:var(--warnBg);color:var(--warn);border-color:transparent}
+.tg.pay{background:var(--payBg);color:var(--pay);border-color:transparent}
+.dsh .dn{margin-top:6px}
+.ar{display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin-top:8px;border:0;background:var(--advBg);border-radius:12px;padding:8px 10px}
+.ar .at{flex:1;min-width:0;display:flex;flex-direction:column}
+.ar b{color:var(--adv);font-weight:700}
+.ar small{color:var(--mu);font-size:.78rem;font-weight:500}
+.ar i{font-style:normal;font-size:.86rem;font-weight:500;color:var(--tx);overflow-wrap:anywhere}
+.ar img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none}
+.ar .go{color:var(--mu);flex:none}
+.da{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.sb{height:38px;border-radius:12px;border:1px solid var(--bd);background:var(--in);font-weight:700;font-size:.9rem}
+.sb.adv{background:var(--ac2);border-color:transparent;color:var(--acT)}
+.ptb{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh);font-size:.9rem}   /* ไม่ใส่ overflow (hidden = หัวตารางค้างผิดที่) — มุมโค้งใส่ที่หัว/แถวรวม · ตัวหนังสือในตารางเป็น em = personFit ย่อทั้งตาราง */
+.pth,.ptr,.ptf{display:grid;grid-template-columns:4.6em minmax(0,1fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1.25fr) minmax(0,1.15fr) .7em;align-items:center;column-gap:.4em;padding:0 8px 0 10px}
+.pth{position:sticky;top:var(--pth,0px);z-index:1;height:1.9em;background:var(--in);color:var(--mu);font-weight:600;border-bottom:1px solid var(--bd);border-radius:15px 15px 0 0}
+.pth>span{font-size:.8em}
+.pth .n,.ptr .n,.ptf .n{text-align:right}
+.ptr{width:100%;min-height:3.4em;border:0;border-bottom:1px solid var(--bd);background:none;text-align:left;font-size:1em;font-weight:600;white-space:nowrap}
+.ptr:active{background:var(--in)}
+.ptr .c0{color:var(--mu);font-size:.8em;font-weight:600}
+.ptr .c0 b{color:var(--tx);font-size:1.3em;font-weight:700;margin-right:.25em}
+.ptr .cx{grid-column:span 3;overflow:hidden}
+.ptr .cx .st{font-size:.82em;padding:1px 8px}
+.ptr .g,.ptf .g{color:var(--pay)} .ptr .r,.ptf .r{color:var(--adv)} .ptr .z{color:var(--mu);font-weight:500}
+.ptr .fl{color:var(--warn)}
+.ptr.today{background:var(--ac2)}
+.ptr.today .c0,.ptr.today .c0 b{color:var(--acT)}
+.ptr .go{color:var(--mu);font-size:.85em}
+.ptr .mk{font-size:.9em;margin-left:.2em}
+.ptf{min-height:2.9em;background:var(--in);font-weight:700;white-space:nowrap;border-radius:0 0 15px 15px}
+.ptf .c0{font-size:.85em;color:var(--mu)}
+.ptf .cw{grid-column:span 2;font-size:.85em;color:var(--mu);font-weight:600}
+.dsh .d1{margin-top:10px}
+.dsh .sb{height:46px;font-size:.98rem}
+/* กล่องถาม / แจ้ง */
+#dlg{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:20px}
+#dlg.on{display:flex}
+#dlg .bx{background:var(--card);border-radius:20px;padding:18px;width:100%;max-width:400px;border:1px solid var(--bd)}
+#dlg .t{white-space:pre-line;font-weight:600;line-height:1.6}
+#dlg .bt{display:flex;gap:10px;margin-top:16px}
+#dlg .bt button{flex:1;height:46px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700}
+#dlg .bt .y{background:var(--ac);border-color:var(--ac);color:#fff}
+#zm{position:fixed;inset:0;z-index:70;background:#000;display:none;align-items:center;justify-content:center}
+#zm.on{display:flex}
+#zm img{max-width:100%;max-height:100%}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);z-index:80;background:#111827;color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:.92rem;
+ opacity:0;transition:all .2s;pointer-events:none;max-width:92vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%)}
+#toast.er{background:#991b1b}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="r1"><h1>⏱️ เวลาทำงาน</h1><div id="lappSt" class="lappSt">⏳ กำลังเตรียม…</div><button class="ib" data-act="menu" aria-label="เมนู">⋯</button></div>
+  <div class="r2">
+    <button class="ib" data-act="prev" aria-label="วันก่อน">‹</button>
+    <button class="day" id="dayBtn"><span id="dayTx">—</span><input type="date" id="dayPick" aria-label="เลือกวัน"></button>
+    <button class="ib" data-act="next" id="nextBtn" aria-label="วันถัดไป">›</button>
+  </div>
+  <div class="r3"><input class="srch" id="q" type="search" placeholder="🔍 ค้นหาชื่อ / รหัส" autocomplete="off"></div>
+  <div class="flt" id="flt"></div>
+</div>
+<div id="bn"></div>
+<main id="main"><div class="load"><b>กำลังเตรียมข้อมูล…</b>เปิดครั้งแรกต้องดึงข้อมูลจากเว็บก่อน (ประมาณ 10–30 วินาที)</div></main>
+
+<div id="person"></div>
+<div id="mask"></div>
+<div class="sheet" id="sheet"></div>
+<div id="dlg"><div class="bx"><div class="t" id="dlgT"></div><div class="bt"><button id="dlgN">ยกเลิก</button><button class="y" id="dlgY">ตกลง</button></div></div></div>
+<div id="zm"><img alt=""></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ═══ ข้อมูล ═══ */
+var BOOT = null, CUR = "", DAY = null, FILTER = "all", QTXT = "", NAMES = {}, PER = null, FORM = null, BUSY = false, NEED_REDRAW = false;
+/* สาขาที่ดู: all = รวมสองสาขา · "2" / "4" · none = ไม่แยกสาขา (ตัวคิด engine ใส่ r.bk + ยอดแยกสาขา byBranch ให้ หน้าจอแค่เลือกชุดมาโชว์ ห้ามคิดเงินเอง)
+   จำแค่ตอนเปิดแอพอยู่ (เปิดใหม่ = รวมสองสาขา) · ใช้ทุกวันที่ดู */
+var BR = "all", BRS = [["all", "รวมสองสาขา"], ["2", "สาขา 2"], ["4", "สาขา 4"], ["none", "ไม่แยกสาขา"]];
+var DAY_AT = "";   // วันที่ (CUR) ที่ DAY โหลดมา
+/* เปลี่ยนสาขา (8 พ.ย. แบบหน้าเวลาทำงานในคอม/เว็บ) — 📍 ทำงานที่ไหน (เฉพาะวันนั้น: แก้เวลา → time.saveRows ช่อง branch)
+   · 🏬 สาขาประจำ (ชีตรายชื่อพนักงาน: หน้าคน → time.setHomeBranch · ใช้กับวันที่ยังไม่ได้ลงว่าทำงานที่ไหน หรือลง 2+4) */
+var DAY_BRANCHES = ["สาขา 2", "สาขา 4"], HOME_BRANCHES = ["สาขา 2", "สาขา 4", "สาขา 2+4"];
+var SPECIAL = ["🏠 ลากลับบ้าน", "🤒 ลาป่วย", "📋 ลากิจ", "🌴 วันหยุด", "🚫 พักงาน", "✈️ ลาพักร้อน"], AUTO = "🔄 คืนค่าอัตโนมัติ";
+var TH_M = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+var TH_D = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; }
+function baht(n) { n = +n || 0; var neg = n < 0; n = Math.abs(n); var s = (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }); return (neg ? "−" : "") + "฿" + s; }
+function ymd(s) { var p = String(s || "").split("-"); return { y: +p[0], m: +p[1], d: +p[2] }; }
+function dayKey(y, m, d) { var t = new Date(Date.UTC(y, m - 1, d)); return t.getUTCFullYear() + "-" + ("0" + (t.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + t.getUTCDate()).slice(-2); }
+function addDays(s, n) { var a = ymd(s); return dayKey(a.y, a.m, a.d + n); }
+function thDate(s, long) { var a = ymd(s); if (!a.y) return s; var w = new Date(Date.UTC(a.y, a.m - 1, a.d)).getUTCDay();
+  return (long ? "วัน" + TH_D[w] + " " : "") + a.d + " " + TH_M[a.m - 1] + (long ? " " + (a.y + 543) : ""); }
+function thShort(s) { var a = ymd(s); var w = new Date(Date.UTC(a.y, a.m - 1, a.d)).getUTCDay(); return TH_D[w].slice(0, 2) + ". " + a.d + " " + TH_M[a.m - 1]; }
+function nowHM() { var t = new Date(Date.now() + 7 * 3600e3); return ("0" + t.getUTCHours()).slice(-2) + ":" + ("0" + t.getUTCMinutes()).slice(-2); }
+/* วันนี้ (เวลาไทย) จากนาฬิกามือถือ — แอพเปิดค้างข้ามคืนก็ขยับวันเอง */
+function TODAY() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }
+var LAST_TODAY = TODAY();
+function uid() { return "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function noT(t) { return !t || t === "--:--"; }
+
+/* เรียกโค้ดเว็บ (คิดในเครื่อง) */
+function call(route, p) {
+  return LAPP.run("api", [route, p || {}, "local"]).then(function (r) {
+    if (!r || r.ok === false) throw new Error((r && r.error) || "ไม่สำเร็จ");
+    return r.data;
+  });
+}
+function labelOf(a) {
+  var r = a && a[0], p = (a && a[1]) || {}, nm = NAMES[String(p.id)] || ("#" + (p.id || ""));
+  var d = p.date ? " · " + thDate(p.date) : "";
+  if (r === "time.addAdv") return "เบิก " + baht(p.amount).slice(1) + " บาท · " + nm + d;
+  if (r === "time.editAdv") return "แก้เบิก " + baht(p.amount).slice(1) + " บาท · " + nm + d;
+  if (r === "time.delAdv") return "ลบรายการเบิก · " + nm + d;
+  if (r === "time.saveRows") {
+    var ch = p.changes || [], c = ch[0] || {}, br = ch.filter(function (x) { return x.field === "branch"; })[0], bv = br ? (br.value || "ยังไม่ได้ลง") : "";
+    var what = br && ch.every(function (x) { return x.field === "branch"; }) ? "📍 ย้ายไป " + bv : "แก้เวลา/สถานะ" + (br ? " · 📍 " + bv : "");
+    return what + " · " + (NAMES[String(c.id)] || ("#" + (c.id || ""))) + (c.date ? " · " + thDate(c.date) : "");
+  }
+  if (r === "time.setHomeBranch") return "สาขาประจำ → " + (p.branch || "") + " · " + nm;
+  return String(r || "");
+}
+
+/* ═══ กล่องแจ้ง ═══ */
+var TT = 0;
+function toast(m, er) { var t = $("toast"); t.textContent = m; t.className = "on" + (er ? " er" : ""); clearTimeout(TT); TT = setTimeout(function () { t.className = ""; }, er ? 5000 : 2600); }
+/* ข้อความยาว (กติกาของเว็บอธิบายหลายบรรทัด) = กล่องแจ้ง · สั้น = แถบล่าง */
+function showErr(m) { m = String(m || "ไม่สำเร็จ"); if (m.length > 60 || m.indexOf("\n") >= 0) ask("❌ " + m, "ตกลง", false); else toast("❌ " + m, true); }
+var DLG = null;
+function ask(text, yes, no) {
+  return new Promise(function (res) {
+    $("dlgT").textContent = text; $("dlgY").textContent = yes || "ตกลง";
+    $("dlgN").style.display = no === false ? "none" : ""; $("dlgN").textContent = no || "ยกเลิก";
+    $("dlg").className = "on"; DLG = res;
+  });
+}
+function dlgDone(v) { $("dlg").className = ""; var f = DLG; DLG = null; if (f) f(v); }
+$("dlgY").onclick = function () { dlgDone(true); };
+$("dlgN").onclick = function () { dlgDone(false); };
+
+/* ═══ เริ่ม ═══ */
+LAPP.ready().then(start, function (e) { $("main").innerHTML = '<div class="load"><b>เริ่มไม่ได้</b>' + esc(e && e.message || e) + '</div>'; });
+function start() {
+  return call("time.bootstrap", {}).then(function (b) {
+    BOOT = b;
+    (b.employees || []).concat(b.special || []).forEach(function (e) { NAMES[String(e.id)] = e.name; });
+    if (!CUR) CUR = TODAY();
+    return loadDay();
+  }).then(function () {
+    var d = draftGet();
+    if (d) restoreDraft(d);
+  }).catch(function (e) { $("main").innerHTML = '<div class="load"><b>เปิดข้อมูลไม่ได้</b>' + esc(e.message) + '</div>'; });
+}
+function loadDay() {
+  var want = CUR;
+  return call("time.getDay", { date: want }).then(function (d) {
+    // วันนี้ยังไม่มีในระบบ (ชีตยังเป็นวันก่อน ยังไม่ปิดยอด) = แสดงวันล่าสุดที่มี พร้อมบอก
+    if (!d.found && want === TODAY()) return call("time.getDay", { date: "latest" }).then(function (l) { if (l.found) { l.fallbackFrom = want; return l; } return d; }, function () { return d; });
+    return d;
+  }).then(function (d) { if (CUR !== want) return; DAY = d; DAY_AT = want; render(); }, function (e) { if (CUR !== want) return; DAY = { found: false, rows: [], err: e.message }; DAY_AT = want; render(); });
+}
+/* ข้ามวัน (เปิดแอพค้างไว้ข้ามคืน) → ไปวันใหม่ถ้ากำลังดู "วันนี้" อยู่ */
+function dayRoll() {
+  var t = TODAY();
+  if (t === LAST_TODAY || !BOOT) return;
+  var was = LAST_TODAY;
+  LAST_TODAY = t;
+  if (CUR === was) CUR = t;
+  if (FORM || BUSY) { NEED_REDRAW = true; return; }
+  refresh();
+}
+document.addEventListener("visibilitychange", function () { if (!document.hidden) dayRoll(); });
+function onRebase() {
+  if (!BOOT) return;
+  if (FORM || BUSY) { NEED_REDRAW = true; return; }
+  refresh();
+}
+function refresh() {
+  NEED_REDRAW = false;
+  call("time.bootstrap", {}).then(function (b) { BOOT = b; (b.employees || []).forEach(function (e) { NAMES[String(e.id)] = e.name; }); }).catch(function () {});
+  return loadDay().then(function () { if (PER) return openPerson(PER.id, PER.from, PER.to, true); });
+}
+
+/* ═══ หน้าวัน ═══ */
+function catOf(r) {
+  if (SPECIAL.indexOf(r.status) >= 0) return "lv";
+  if (!noT(r.in)) return "came";
+  return "not";
+}
+function stCls(s) {
+  s = String(s || "");
+  if (SPECIAL.indexOf(s) >= 0) return "lv";
+  if (/ปกติ/.test(s)) return "ok";
+  if (/สาย/.test(s)) return "late";
+  if (/ไม่มา|ลืม/.test(s)) return "no";
+  return "";
+}
+function render() {
+  if (DAY && DAY_AT !== CUR) return;   // กำลังโหลดวันใหม่ (กดกล่อง/ปุ่มกรองระหว่างนั้น) = จำที่เลือกไว้ วาดตอนโหลดเสร็จ — ไม่เอาหัววันใหม่ไปซ้อนรายชื่อวันเก่า
+  var d = DAY || { rows: [] }, today = TODAY();
+  $("dayTx").innerHTML = esc(thDate(CUR, true)) + (CUR === today ? "<small>วันนี้</small>" : "");
+  $("dayPick").value = CUR;
+  $("nextBtn").style.visibility = CUR >= today ? "hidden" : "";
+  var bb = d.byBranch || null, k = viewKey(d);
+  var all = d.rows || [], rows = all.filter(function (r) { return inBr(r, k); }), c = { all: rows.length, came: 0, not: 0, lv: 0 };
+  rows.forEach(function (r) { c[catOf(r)]++; });
+  var F = [["all", "ทั้งหมด"], ["came", "มาแล้ว"], ["not", "ยังไม่มา"], ["lv", "ลา/หยุด"]];
+  $("flt").innerHTML = F.map(function (f) { return '<button class="pill' + (FILTER === f[0] ? " on" : "") + '" data-flt="' + f[0] + '">' + f[1] + " " + c[f[0]] + "</button>"; }).join("");
+  if (!d.found) {
+    $("main").innerHTML = '<div class="empty">' + (d.err ? "⚠ " + esc(d.err) : "ไม่มีข้อมูลเวลาทำงานของ" + esc(thDate(CUR, true))) + "</div>";
+    return;
+  }
+  var s = (k === "all" ? d.summary : bb[k].summary) || {}, q = QTXT.trim().toLowerCase(), h = "";
+  if (d.fallbackFrom) h += '<div class="banner w" style="margin:0 0 10px">ยังไม่มีข้อมูลของ' + esc(thDate(d.fallbackFrom, true)) + " — แสดงวันล่าสุดในระบบ: <b>" + esc(thDate(d.date, true)) + "</b></div>";
+  h += brStrip(d, k);
+  h += '<div class="sum"><div class="p"><b>' + baht(s.pay) + '</b><span>ค่าแรงวันนี้</span></div><div class="a"><b>' + baht(s.adv) + '</b><span>เบิกวันนี้</span></div>'
+    + '<div><b>' + (s.work || 0) + ' <small style="font-size:.75rem;color:var(--mu)">คน</small></b><span>มา' + (s.late ? " · สาย " + s.late : "") + '</span></div></div>';
+  var shown = 0;
+  all.forEach(function (r, i) {   // i = ลำดับใน DAY.rows (กดการ์ดหาแถวจากลำดับนี้) — กรองสาขาแล้วข้าม ไม่นับลำดับใหม่
+    if (!inBr(r, k)) return;
+    if (FILTER !== "all" && catOf(r) !== FILTER) return;
+    if (q && String(r.name).toLowerCase().indexOf(q) < 0 && String(r.id) !== q) return;
+    shown++;
+    h += card(r, i);
+  });
+  if (!shown) h += '<div class="empty">ไม่มีรายชื่อที่ตรง</div>';
+  $("main").innerHTML = h;
+}
+function inBr(r, k) { return k === "all" || r.bk === k; }
+/* สาขาที่แสดงรอบนี้ — BR คือที่ผู้ใช้เลือก (ไม่เปลี่ยนเอง) · วันที่ไม่มียอดแยกสาขา (ไม่มีข้อมูล/โหลดพลาด) หรือเลือก "ไม่แยกสาขา" แต่วันนี้ไม่มีใคร = แสดงรวมไปก่อน
+   วันถัดไปที่มี = กลับไปสาขาที่เลือกเอง */
+function viewKey(d) {
+  var bb = d.byBranch;
+  if (BR === "all" || !bb || !bb[BR]) return "all";
+  if (BR === "none" && !(bb.none.summary || {}).days) return "all";
+  return BR;
+}
+/* กล่องสาขา: มากี่คน + ขาด/สาย/ลา จากยอดที่ตัวคิดให้มา · "ไม่แยกสาขา" มีเฉพาะวันที่มีคน (ไม่มี = ช่องว่าง กล่องอื่นไม่ขยับ) */
+function brStrip(d, k) {
+  var bb = d.byBranch;
+  if (!bb) return "";
+  var it = function (t, n) { return "<span>" + t + " " + n + "</span>"; };
+  return '<div class="brs">' + BRS.map(function (b) {
+    var s = b[0] === "all" ? d.summary : (bb[b[0]] || {}).summary;
+    if (!s || (b[0] === "none" && !s.days)) return "";
+    var sub = (!s.work && !s.absent && s.leave) ? it("ลา/หยุด", s.leave)   // วันหยุดร้าน = ทุกคน "ลา/หยุด" แบบปุ่มกรอง
+      : [s.absent ? it("ขาด", s.absent) : "", s.late ? it("สาย", s.late) : "", s.leave ? it("ลา", s.leave) : ""].filter(Boolean).join(" · ");
+    return '<button class="brb' + (k === b[0] ? " on" : "") + '" data-br="' + b[0] + '"><span class="brT">' + b[1] + "</span>"
+      + '<span class="brN">มา ' + (s.people != null ? s.people : s.work || 0) + " <small>คน</small></span>"
+      + '<span class="brS">' + (sub || (s.days ? "ไม่มีขาด/สาย" : "ไม่มีคน")) + "</span></button>";
+  }).join("") + "</div>";
+}
+function fineTags(f) {
+  if (!f) return "";
+  return (f.late ? '<span class="fine">⏰ สาย −' + f.late + "</span>" : "") + (f.early ? '<span class="fine">🏃 เลิกก่อน −' + f.early + "</span>" : "");
+}
+function card(r, i) {
+  var off = SPECIAL.indexOf(r.status) >= 0, done = !off && !noT(r.out);
+  var advs = r.advs || [], h = '<div class="card' + (off ? " off" : done ? " done" : "") + '" data-i="' + i + '">';
+  h += '<div class="ch"><div class="nm" data-act="person">' + esc(r.name) + '<span class="id">#' + esc(r.id) + '</span><span class="go"> ›</span></div>'
+    + (done ? '<span class="tag done">🏁 เลิกงาน</span>' : "") + '<span class="st ' + stCls(r.status) + '">' + esc(r.status || "—") + "</span></div>";
+  h += '<div class="tm"><span>เข้า <b' + (r.fine && r.fine.late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + '</b></span><span>ออก <b' + (r.fine && r.fine.early ? ' class="fl"' : "") + ">"
+    + esc(r.out || "--:--") + "</b></span>" + (r.hrs ? "<span>" + r.hrs + " ชม.</span>" : "") + (r.branch ? "<span>📍 " + esc(r.branch) + "</span>" : "") + "</div>";
+  var mo = (r.pay ? '<span class="pay">ค่าแรง ' + baht(r.pay) + "</span>" : "") + (r.tip ? '<span class="pay">ทิป ' + baht(r.tip) + "</span>" : "")
+    + (r.adv ? '<span class="adv">เบิก ' + baht(r.adv) + "</span>" : "") + fineTags(r.fine);
+  if (r.per) mo += '<span class="per' + (r.per.net < 0 ? " neg" : "") + '">งวดนี้เหลือ ' + baht(r.per.net) + "</span>";
+  if (mo) h += '<div class="mo">' + mo + "</div>";
+  if (r.note) h += '<div class="dn">📝 ' + esc(r.note) + "</div>";
+  if (advs.length) {
+    h += '<div class="advs">';
+    advs.forEach(function (a, k) {
+      h += '<button class="al" data-act="aedit" data-k="' + k + '"><b>' + baht(a.amt) + '</b><span class="m">' + esc([a.time, a.payer, a.note].filter(Boolean).join(" · ") || "—") + "</span>"
+        + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : '<span class="noimg">📷</span>') + "</button>";
+    });
+    h += "</div>";
+  }
+  h += '<div class="acts"><button class="b adv" data-act="adv">💸 เบิกเงิน</button><button class="b ed" data-act="edit">✏️ แก้เวลา</button></div>';
+  return h + "</div>";
+}
+
+/* ═══ กดในหน้า ═══ */
+document.addEventListener("click", function (e) {
+  var z = e.target.closest("[data-zoom]");
+  if (z) { e.preventDefault(); e.stopPropagation(); zoom(z.getAttribute("data-zoom")); return; }
+  var f = e.target.closest("[data-flt]");
+  if (f) { FILTER = f.getAttribute("data-flt"); render(); return; }
+  var br = e.target.closest("[data-br]");
+  if (br) { BR = br.getAttribute("data-br"); render(); return; }
+  var b = e.target.closest("[data-act]");
+  if (!b) return;
+  var act = b.getAttribute("data-act"), cd = b.closest("[data-i]"), r = null;
+  if (cd) { var src = cd.getAttribute("data-src") === "p" ? (PER && PER.data && PER.data.rows) : (DAY && DAY.rows); r = src ? src[+cd.getAttribute("data-i")] : null; }
+  if (act === "menu") return menu();
+  if (!BOOT) return;
+  if (act === "prev") { CUR = addDays(CUR, -1); return loadDay(); }
+  if (act === "next") { if (CUR < TODAY()) { CUR = addDays(CUR, 1); return loadDay(); } return; }
+  if (!r) return;
+  if (act === "person") return openPerson(r.id);
+  if (act === "adv") return advForm(r, null);
+  if (act === "aedit") return editAdvGuard(r, (r.advs || [])[+b.getAttribute("data-k")]);
+  if (act === "edit") return editForm(r);
+}, false);
+$("dayPick").onchange = function () { var v = this.value; if (!v || !BOOT) return; if (v > TODAY()) v = TODAY(); CUR = v; loadDay(); };
+/* แถวที่ยังมีคำสั่งรอเว็บยืนยัน = ยังแก้/ลบรายการเบิกไม่ได้ (รหัสรายการในมือถือกับบนเว็บอาจไม่ตรงกันจนกว่าจะดึงชีตใหม่) */
+function rowPending(r) {
+  var st = LAPP.state && LAPP.state(), k = r.date + "|" + r.id;
+  return !!(st && (st.q || []).some(function (c) { return (c.rows || []).indexOf(k) >= 0; }));
+}
+function editAdvGuard(r, a) {
+  if (!a) return;
+  if (rowPending(r)) { ask("⏳ รายการของ " + r.name + " วันนั้นยังรอส่งขึ้นเว็บ\nรอให้ป้ายด้านบนขึ้น \"☁ ✓ ตรงกับเว็บแล้ว\" ก่อน แล้วค่อยแก้/ลบ\n(กันแก้ผิดรายการ)", "ตกลง", false); return; }
+  advForm(r, a);
+}
+$("dayBtn").onclick = function (e) { var p = $("dayPick"); try { if (p.showPicker) { p.showPicker(); e.preventDefault(); } } catch (x) {} };
+$("q").oninput = function () { QTXT = this.value; render(); };
+function zoom(u) { $("zm").querySelector("img").src = String(u).replace("sz=w800", "sz=w1600"); $("zm").className = "on"; }
+$("zm").onclick = function () { $("zm").className = ""; };
+
+/* ═══ หน้าต่างล่าง ═══ */
+function openSheet(html) { $("sheet").onclick = null; $("sheet").oninput = null; $("sheet").innerHTML = '<div class="grab"></div>' + html; $("sheet").scrollTop = 0; $("sheet").className = "sheet on"; $("mask").className = "on"; }
+function closeSheet() {
+  $("sheet").className = "sheet"; $("mask").className = ""; FORM = null; FAIL_OPEN = false;
+  if (NEED_REDRAW) refresh();
+}
+$("mask").onclick = function () { backSheet(); };
+function formDirty() { return FORM && FORM.dirty && FORM.dirty(); }
+function backSheet() {
+  if (formDirty()) { ask("ทิ้งที่กรอกไว้?", "ทิ้ง", "กรอกต่อ").then(function (y) { if (y) { draftClear(); closeSheet(); } }); return; }
+  draftClear(); closeSheet();
+}
+/* ปุ่มย้อนกลับของมือถือ (app.html เรียก) · true = ปิดอะไรไปแล้ว */
+window.appBackInner = function () {
+  if ($("zm").className === "on") { $("zm").className = ""; return true; }
+  if (DLG) { dlgDone(false); return true; }
+  if ($("sheet").classList.contains("on")) { backSheet(); return true; }
+  if (PER) { closePerson(); return true; }
+  return false;
+};
+
+/* ═══ เบิกเงิน ═══ */
+function perLine(r) {
+  if (!r.per) return "";
+  return '<div class="perbox">งวดนี้ถึงวันนี้ · ค่าแรง <b>' + baht(r.per.pay) + "</b> · เบิกแล้ว <b>" + baht(r.per.adv) + '</b> · เหลือ <b class="' + (r.per.net < 0 ? "neg" : "") + '">' + baht(r.per.net) + "</b></div>";
+}
+function payers() {
+  var seen = {}, out = [];
+  (JSON.parse(ls("attPayers") || "[]")).concat((DAY && DAY.rows || []).reduce(function (a, r) { return a.concat((r.advs || []).map(function (x) { return x.payer; })); }, []))
+    .forEach(function (p) { p = String(p || "").trim(); if (p && !seen[p] && out.length < 8) { seen[p] = 1; out.push(p); } });
+  return out;
+}
+function rememberPayer(p) { p = String(p || "").trim(); if (!p) return; var l = JSON.parse(ls("attPayers") || "[]").filter(function (x) { return x !== p; }); l.unshift(p); ls("attPayers", JSON.stringify(l.slice(0, 6))); }
+function nobodyScanned(day) { return day && day.src === "DAILY" && (day.rows || []).every(function (r) { return noT(r.in) && noT(r.out) && SPECIAL.indexOf(r.status) < 0; }); }
+
+/* r = แถววันนั้น · a = รายการเบิกเดิม (แก้) · pre = ค่าที่กรอกค้าง (กลับจากกล้อง / ทำใหม่จากที่ส่งไม่ผ่าน) */
+function advForm(r, a, pre) {
+  pre = pre || {};
+  var edit = !!a, lp = payers();
+  var st = { amt: pre.amt != null ? String(pre.amt) : edit ? String(a.amt) : "", photo: pre.photo || "", payer: pre.payer != null ? pre.payer : edit ? (a.payer || "") : (lp[0] || ""),
+    time: pre.time || (edit ? (a.time || "") : nowHM()), note: pre.note != null ? pre.note : edit ? (a.note === "ยอดเดิมในชีต" ? "" : (a.note || "")) : "" };
+  var OTHER = "__other__", pl = lp.slice();
+  if (st.payer && pl.indexOf(st.payer) < 0) pl.unshift(st.payer);
+  var pOther = !st.payer;   // ยังไม่มีชื่อ = เลือก "ชื่ออื่น" ไว้ให้พิมพ์ (กล่องไม่โชว์ชื่อที่ไม่ได้เลือก)
+  var init = JSON.stringify(st);
+  var isToday = BOOT && r.date === BOOT.today;
+  var h = "<h3>" + (edit ? "✏️ แก้รายการเบิก" : "💸 เบิกเงิน") + " — " + esc(r.name) + "</h3>"
+    + '<div class="sub">' + esc(thDate(r.date, true)) + (isToday ? "" : " · บันทึกย้อนหลัง") + "</div>" + perLine(r);
+  if (!edit && nobodyScanned(DAY) && DAY.date === r.date) h += '<div class="warn">⚠ วันนี้ยังไม่มีใครสแกนเข้า — ถ้าทั้งวันไม่มีใครมาทำงาน ยอดเบิกของวันนี้อาจไม่ถูกนับ</div>';
+  h += '<label class="lb">จำนวนเงิน (บาท)</label><input class="in big" id="fAmt" inputmode="decimal" value="' + esc(st.amt) + '">'
+    + '<div class="chips" id="qAmt">' + [100, 200, 300, 500, 1000].map(function (n) { return '<button class="chip" data-v="' + n + '">' + n.toLocaleString("en-US") + "</button>"; }).join("") + "</div>"
+    + '<div class="ph"><label class="cam" id="camL">' + camInner(st.photo || (edit ? a.photo : "")) + '<input type="file" accept="image/*" capture="environment" id="fCam"></label></div>'
+    + '<button class="lnk" id="galB">หรือเลือกจากคลังรูป</button><input type="file" accept="image/*" id="fGal" style="display:none">'
+    + '<label class="lb" for="fPaySel">ผู้จ่าย</label><div class="selw"><select class="in" id="fPaySel">'
+    + pl.map(function (p) { return '<option value="' + esc(p) + '"' + (p === st.payer ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("")
+    + '<option value="' + OTHER + '"' + (pOther ? " selected" : "") + ">✏️ ชื่ออื่น (พิมพ์เอง)</option></select></div>"
+    + '<input class="in" id="fPayer" placeholder="พิมพ์ชื่อคนจ่าย" value="' + esc(pOther ? st.payer : "") + '" maxlength="40" style="margin-top:8px' + (pOther ? "" : ";display:none") + '">'
+    + '<div class="g2"><div><label class="lb">เวลาเบิก</label><input class="in" type="time" id="fTime" value="' + esc(st.time) + '"></div>'
+    + '<div><label class="lb">หมายเหตุ</label><input class="in" id="fNote" placeholder="ไม่ใส่ก็ได้" value="' + esc(st.note) + '" maxlength="200"></div></div>'
+    + '<button class="save" id="fSave"></button>' + (edit ? '<button class="del" id="fDel">🗑 ลบรายการเบิกนี้</button>' : "");
+  openSheet(h);
+  $("fPaySel").onchange = function () {
+    var o = this.value === OTHER;
+    $("fPayer").style.display = o ? "" : "none";
+    st.payer = o ? $("fPayer").value : this.value;
+    if (o) $("fPayer").focus();
+  };
+  var amt = $("fAmt");
+  function label() { var v = parseFloat(String(amt.value).replace(/,/g, "")); $("fSave").textContent = (edit ? "บันทึกการแก้ " : "บันทึกเบิก ") + (v > 0 ? baht(v) : ""); }
+  label();
+  amt.oninput = function () { st.amt = amt.value; label(); };
+  $("qAmt").onclick = function (e) { var c = e.target.closest("[data-v]"); if (!c) return; amt.value = c.getAttribute("data-v"); st.amt = amt.value; label(); };
+  $("fPayer").oninput = function () { st.payer = this.value; };
+  $("fTime").oninput = function () { st.time = this.value; };
+  $("fNote").oninput = function () { st.note = this.value; };
+  var me = null;   // ฟอร์มนี้ (ย่อรูปเสร็จหลังปิดฟอร์ม/เปิดฟอร์มอื่น = ทิ้งผล)
+  function takePhoto(inp) {
+    var f = inp.files && inp.files[0];
+    inp.value = "";
+    if (!f) return;
+    st.shrinking = (st.shrinking || 0) + 1;
+    $("camL").innerHTML = camInner("") .replace("📷 ถ่ายรูป", "⏳ กำลังย่อรูป…") + '<input type="file" accept="image/*" capture="environment" id="fCam">';
+    shrinkPhoto(f).then(function (u) { if (FORM === me) st.photo = u; }, function () { if (FORM === me) toast("❌ อ่านรูปไม่ได้ ลองถ่ายใหม่", true); })
+      .then(function () {
+        st.shrinking--;
+        if (FORM !== me) return;
+        $("camL").innerHTML = camInner(st.photo || (edit ? a.photo : "")) + '<input type="file" accept="image/*" capture="environment" id="fCam">'; bindCam();
+      });
+  }
+  function bindCam() {
+    $("fCam").onchange = function () { takePhoto(this); };
+    $("fCam").onclick = function () { draftSave({ kind: "adv", id: r.id, date: r.date, item: edit ? a.item : "", amt: st.amt, payer: st.payer, time: st.time, note: st.note, retry: pre.retry || "" }); };
+  }
+  bindCam();
+  $("galB").onclick = function () { $("fGal").click(); };
+  $("fGal").onchange = function () { takePhoto(this); };
+  FORM = me = { dirty: function () { return JSON.stringify({ amt: st.amt, photo: st.photo, payer: st.payer, time: st.time, note: st.note }) !== init; } };
+  $("fSave").onclick = function () { if (st.shrinking > 0) { toast("รอย่อรูปสักครู่…"); return; } saveAdv(r, a, st, this, pre.retry || ""); };
+  if (edit) $("fDel").onclick = function () { delAdv(r, a); };
+  if (!edit && !pre.amt) setTimeout(function () { try { amt.focus(); } catch (e) {} }, 250);
+}
+function camInner(photo) {
+  return photo ? '<img src="' + esc(photo) + '" alt=""><span class="re">ถ่ายใหม่</span>' : "📷 ถ่ายรูป";
+}
+// ย่อรูปแบบเดียวกับหน้าเว็บ: ด้านยาวสุด 1280px · JPEG 0.72
+function shrinkPhoto(file) {
+  return new Promise(function (res, rej) {
+    var fr = new FileReader();
+    fr.onerror = rej;
+    fr.onload = function () {
+      var im = new Image();
+      im.onerror = rej;
+      im.onload = function () {
+        var k = Math.min(1, 1280 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        res(c.toDataURL("image/jpeg", 0.72));
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+/* retry = รหัสรายการที่ส่งไม่ผ่านซึ่งฟอร์มนี้ทำใหม่ (บันทึกสำเร็จ = ทิ้งรายการเก่า · ปิดฟอร์มไม่บันทึก = รายการเก่าอยู่ต่อ) */
+function saveAdv(r, a, st, btn, retry) {
+  if (BUSY) return;
+  var amt = parseFloat(String(st.amt).replace(/,/g, ""));
+  if (!(amt > 0)) { toast("ใส่จำนวนเงินก่อน", true); $("fAmt").focus(); return; }
+  if (st.time && !/^\d{1,2}:\d{2}$/.test(st.time)) { toast("เวลาไม่ถูกต้อง", true); return; }
+  var more = a ? amt - (+a.amt || 0) : amt;
+  var go = Promise.resolve(true);
+  if (r.per && more > 0 && r.per.net - more < 0)
+    go = ask("⚠️ " + r.name + " — งวดนี้ถึงวันนี้\n💰 ค่าแรงรวม " + baht(r.per.pay) + " · 📒 เบิกไปแล้ว " + baht(r.per.adv) + "\n\nถ้าเบิกอีก " + baht(more) + " จะเกินค่าแรง " + baht(more - r.per.net) + "\n\nยังจะบันทึกไหม?", "บันทึก", "ไม่บันทึก");
+  go.then(function (y) {
+    if (!y) return;
+    BUSY = true; btn.disabled = true; btn.textContent = "⏳ กำลังบันทึก…";
+    var p = { src: r.src, row: r.row, id: r.id, date: r.date, amount: amt, time: st.time || "", payer: String(st.payer || "").trim(), note: String(st.note || "").trim(), reqId: uid() };
+    if (st.photo) p.photo = st.photo;
+    if (a) p.item = a.item;
+    rememberPayer(p.payer);
+    call(a ? "time.editAdv" : "time.addAdv", p).then(function () {
+      BUSY = false; draftClear(); closeSheet();
+      toast((a ? "✅ แก้รายการเบิกแล้ว — " : "✅ บันทึกเบิก ") + (a ? r.name + " " + baht(amt) : baht(amt) + " — " + r.name));
+      if (retry) dismissFail(retry);
+      return refresh();
+    }, function (e) {
+      BUSY = false; btn.disabled = false; btn.textContent = "บันทึกเบิก " + baht(amt);
+      showErr(e.message);
+    });
+  });
+}
+function delAdv(r, a) {
+  if (rowPending(r)) { ask("⏳ รายการของ " + r.name + " วันนั้นยังรอส่งขึ้นเว็บ\nรอให้ป้ายด้านบนขึ้น \"☁ ✓ ตรงกับเว็บแล้ว\" ก่อน แล้วค่อยลบ", "ตกลง", false); return; }
+  ask("ลบรายการเบิก " + baht(a.amt) + " ของ " + r.name + (a.time ? " (เวลา " + a.time + ")" : "") + " ?\n(ในชีตจะเก็บไว้ว่าเคยลบ)", "ลบ", "ไม่ลบ").then(function (y) {
+    if (!y || BUSY) return;
+    BUSY = true;
+    call("time.delAdv", { src: r.src, row: r.row, id: r.id, date: r.date, item: a.item, reqId: uid() }).then(function () {
+      BUSY = false; draftClear(); closeSheet(); toast("🗑 ลบรายการเบิกแล้ว"); return refresh();
+    }, function (e) { BUSY = false; showErr(e.message); });
+  });
+}
+/* กลับจากกล้อง (มือถือปิดแอพทิ้งระหว่างถ่าย) = เปิดฟอร์มเดิมให้ · รูปอยู่ในคลังรูปของมือถือ */
+function draftSave(d) { d.t = Date.now(); ls("attDraft", JSON.stringify(d)); }
+function draftClear() { ls("attDraft", null); }
+function draftGet() { try { var d = JSON.parse(ls("attDraft") || "null"); if (d && Date.now() - d.t < 30 * 60e3) return d; } catch (e) {} draftClear(); return null; }
+function restoreDraft(d) {
+  draftClear();
+  rowOf(d.id, d.date).then(function (r) {
+    if (!r) return;
+    var a = d.item ? (r.advs || []).filter(function (x) { return x.item === d.item; })[0] : null;
+    if (d.item && !a) { showErr("รายการเบิกที่กำลังแก้ไม่อยู่แล้ว (อาจถูกลบ/แก้จากเครื่องอื่น) — ตรวจในหน้าแล้วค่อยทำใหม่"); return; }
+    advForm(r, a || null, { amt: d.amt, payer: d.payer, time: d.time, note: d.note, retry: d.retry || "" });
+    toast("กลับมากรอกต่อ — ถ้ารูปเมื่อกี้หาย กด \"เลือกจากคลังรูป\"");
+  });
+}
+function rowOf(id, date) {
+  var hit = function (d) { return (d.rows || []).filter(function (x) { return String(x.id) === String(id); })[0] || null; };
+  if (DAY && DAY.date === date && DAY.found) return Promise.resolve(hit(DAY));
+  return call("time.getDay", { date: date }).then(hit, function () { return null; });
+}
+
+/* ═══ แก้เวลา / สถานะ ═══ */
+function editForm(r, pre) {
+  pre = pre || {};
+  var o = { in: noT(r.in) ? "" : r.in, out: noT(r.out) ? "" : r.out, status: SPECIAL.indexOf(r.status) >= 0 ? r.status : AUTO, note: r.note || "", tip: r.tip ? String(r.tip) : "", pay: "", branch: r.branch || "" };
+  var st = { in: pre.in != null ? pre.in : o.in, out: pre.out != null ? pre.out : o.out, status: pre.status || o.status, note: pre.note != null ? pre.note : o.note, tip: pre.tip != null ? pre.tip : o.tip, pay: pre.pay != null ? pre.pay : "", branch: pre.branch != null ? pre.branch : o.branch };
+  var brChoices = dayBrOpts(o.branch), home = empOf(r.id);   // ค่าของแถวเลือกกลับได้เสมอ (ทำใหม่ที่เคยเลือกสาขาอื่น = ไม่บังคับเขียนสาขา)
+  if (brChoices.indexOf(st.branch) < 0) brChoices.push(st.branch);
+  var h = "<h3>✏️ แก้เวลา — " + esc(r.name) + "</h3>"
+    + '<div class="sub">' + esc(thDate(r.date, true)) + " · ตอนนี้: " + esc(r.status || "—") + (r.hrs ? " · " + r.hrs + " ชม." : "") + (r.pay ? " · " + baht(r.pay) : "") + "</div>"
+    + '<div class="g2"><div><label class="lb">เวลาเข้า</label><input class="in" type="time" id="eIn" value="' + esc(st.in) + '">'
+    + '<div class="mini"><button data-now="eIn">ตอนนี้</button><button data-clr="eIn">ล้าง</button></div></div>'
+    + '<div><label class="lb">เวลาออก</label><input class="in" type="time" id="eOut" value="' + esc(st.out) + '">'
+    + '<div class="mini"><button data-now="eOut">ตอนนี้</button><button data-clr="eOut">ล้าง</button></div></div></div>'
+    + '<label class="lb" for="eSt">สถานะ</label><div class="selw"><select class="in" id="eSt">'
+    + [[AUTO, "🔄 ตามเวลาสแกน" + (r.status && SPECIAL.indexOf(r.status) < 0 ? " (ตอนนี้ " + r.status + ")" : "")]].concat(SPECIAL.map(function (s) { return [s, s]; })).map(function (s) {
+        return '<option value="' + esc(s[0]) + '"' + (st.status === s[0] ? " selected" : "") + ">" + esc(s[1]) + "</option>"; }).join("") + "</select></div>"
+    + '<div class="hint">ตามเวลาสแกน = ระบบคิดเอง (ปกติ / มาสาย / ไม่มา / ลืมสแกนออก) · ให้เป็น "ไม่มา" = ล้างเวลาเข้า-ออก · ลา/หยุด = ไม่นับเวลาสแกนวันนั้น</div>'
+    + '<details><summary>💰 ค่าแรง / ทิป (แก้มือ)<b id="ePtV">' + esc(payTipTx(st)) + "</b></summary>"
+    + '<div class="g2"><div><label class="lb">ค่าแรงวันนี้</label><input class="in" id="ePay" inputmode="decimal" placeholder="' + esc(r.pay ? String(r.pay) + " (ตามสูตร)" : "ตามสูตร") + '" value="' + esc(st.pay) + '"></div>'
+    + '<div><label class="lb">ทิป/โบนัส</label><input class="in" id="eTip" inputmode="decimal" placeholder="0" value="' + esc(st.tip) + '"></div></div>'
+    + '<div class="hint">เว้นช่องค่าแรงว่าง = คิดตามสูตรเหมือนเดิม · แก้เวลาแล้วระบบคิดค่าแรงใหม่ให้เอง</div>'
+    + '<button class="lnk" id="ePayAuto">คืนค่าแรงเป็นตามสูตร (ถ้าเคยแก้มือ)</button></details>'
+    + '<label class="lb">หมายเหตุของวัน</label><input class="in" id="eNote" placeholder="เช่น ช่วยงานนอก" value="' + esc(st.note) + '">'
+    + '<details><summary>📍 ทำงานที่ไหน: <b id="eBrV">' + esc(st.branch || "ยังไม่ได้ลง") + "</b></summary>"
+    + '<div class="selw"><select class="in" id="eBr" aria-label="ทำงานที่ไหน (เฉพาะวันที่ ' + esc(thDate(r.date)) + ')">' + brChoices.map(function (b) {
+        return '<option value="' + esc(b) + '"' + (st.branch === b ? " selected" : "") + ">" + (b ? esc(b) : "— ยังไม่ได้ลง —") + "</option>"; }).join("") + "</select></div>"
+    + '<div class="hint">เปลี่ยนเฉพาะวันที่ ' + esc(thDate(r.date)) + " · " + (home && home.branch ? "สาขาประจำ: " + esc(home.branch) + " · " : "")
+    + "ยังไม่ได้ลง/ลง 2+4 = นับตามสาขาประจำ · ย้ายสาขาประจำ = หน้าคน → ปุ่ม สาขาประจำ มุมขวาบน</div></details>"
+    + '<button class="save" id="eSave">บันทึก</button>';
+  openSheet(h);
+  var payAuto = !!pre.payAuto;
+  function sync() { st.in = $("eIn").value; st.out = $("eOut").value; st.note = $("eNote").value; st.pay = $("ePay").value; st.tip = $("eTip").value; $("ePtV").textContent = payTipTx(st); }
+  $("sheet").oninput = sync;
+  $("eSt").onchange = function () { st.status = this.value; };
+  $("eBr").onchange = function () { st.branch = this.value; $("eBrV").textContent = this.value || "ยังไม่ได้ลง"; };
+  $("sheet").onclick = function (e) {
+    var n = e.target.closest("[data-now]"), c = e.target.closest("[data-clr]");
+    if (n) { $(n.getAttribute("data-now")).value = nowHM(); sync(); }
+    if (c) { $(c.getAttribute("data-clr")).value = ""; sync(); }
+  };
+  $("ePayAuto").onclick = function () { payAuto = true; $("ePay").value = ""; sync(); toast("จะคืนค่าแรงเป็นตามสูตรตอนกดบันทึก"); };
+  var changes = function () {
+    var ch = [], add = function (f, v) { ch.push({ src: r.src, row: r.row, id: r.id, date: r.date, field: f, value: v }); };
+    if (st.in !== o.in) add("in", st.in || "--:--");
+    if (st.out !== o.out) add("out", st.out || "--:--");
+    if (st.status !== o.status) add("status", st.status);
+    if (st.note.trim() !== o.note.trim()) add("note", st.note.trim());
+    if (st.branch !== o.branch) add("branch", st.branch);
+    if (String(st.tip).trim() !== o.tip) add("tip", String(st.tip).trim());
+    if (String(st.pay).trim() !== "") add("pay", String(st.pay).trim());
+    else if (payAuto) add("pay", "");
+    return ch;
+  };
+  FORM = { dirty: function () { return changes().length > 0; } };
+  $("eSave").onclick = function () {
+    if (BUSY) return;
+    var ch = changes(), btn = this;
+    if (!ch.length) { closeSheet(); return; }
+    var bad = ["in", "out"].filter(function (f) { var v = st[f]; return v && !/^\d{1,2}:\d{2}$/.test(v); });
+    if (bad.length) { toast("เวลาไม่ถูกต้อง", true); return; }
+    var num = ["pay", "tip"].filter(function (f) { var v = String(st[f]).trim(); return v !== "" && isNaN(parseFloat(v.replace(/,/g, ""))); });
+    if (num.length) { toast("ค่าแรง/ทิป ต้องเป็นตัวเลข", true); return; }
+    BUSY = true; btn.disabled = true; btn.textContent = "⏳ กำลังบันทึก…";
+    call("time.saveRows", { changes: ch, reqId: uid() }).then(function () {
+      BUSY = false; closeSheet(); toast("✅ บันทึกแล้ว — " + r.name);
+      if (pre.retry) dismissFail(pre.retry);
+      return refresh();
+    }, function (e) { BUSY = false; btn.disabled = false; btn.textContent = "บันทึก"; showErr(e.message); });
+  };
+}
+
+/* หัวแถวพับ ค่าแรง/ทิป: ": ค่าแรง 500 · ทิป 50" เมื่อมีค่า (ค่าแรงว่าง = ตามสูตร ไม่บอก) */
+function payTipTx(st) {
+  var a = [], pay = String(st.pay || "").trim(), tip = String(st.tip || "").trim();
+  if (pay) a.push("ค่าแรง " + pay);
+  if (tip && tip !== "0") a.push("ทิป " + tip);
+  return a.length ? ": " + a.join(" · ") : "";
+}
+/* ตัวเลือก 📍 ทำงานที่ไหน: สาขา 2 / สาขา 4 (ผู้ใช้ 8 พ.ย. "โชว์แค่ 2 กับ 4") + ค่าตอนนี้ถ้าเป็นอย่างอื่น (ว่าง = ยังไม่ได้ลง) */
+function dayBrOpts(cur) {
+  var L = DAY_BRANCHES.slice();
+  if (L.indexOf(cur) < 0) L.unshift(cur);
+  return L;
+}
+function empOf(id) {
+  var all = ((BOOT && BOOT.employees) || []).concat((BOOT && BOOT.special) || []);
+  for (var k = 0; k < all.length; k++) if (String(all[k].id) === String(id)) return all[k];
+  return null;
+}
+/* 🏬 สาขาประจำ: กด = time.setHomeBranch (เขียนชีตรายชื่อพนักงานช่องสาขา · ส่งขึ้นเว็บเบื้องหลังแบบคำสั่งแก้ไขอื่น)
+   กดสาขาเดิมก็ส่ง (เว็บไม่เขียนถ้าเท่าเดิม) — ค่าที่เห็นอาจเก่ากว่าเว็บ (แก้จากเครื่องอื่น) */
+function homeBrForm(id, name, cur) {
+  var h = "<h3>🏬 สาขาประจำ — " + esc(name) + "</h3>"
+    + '<div class="sub">ตอนนี้: ' + esc(cur || "ยังไม่ได้ตั้ง") + "</div>"
+    + '<div class="chips" id="hbBr">' + HOME_BRANCHES.map(function (b) {
+        return '<button class="chip' + (cur === b ? " on" : "") + '" data-v="' + esc(b) + '">' + esc(b) + "</button>"; }).join("") + "</div>"
+    + '<div class="hint">วันที่ลงสาขาเดียวไว้แล้ว (รวมวันนี้) ไม่ย้าย · วันที่ลง 2+4 หรือยังไม่ได้ลง (รวมวันเก่า) นับตามสาขาประจำใหม่<br>ย้ายเฉพาะวัน (เช่น วันนี้ไปช่วยอีกสาขา) = ✏️ แก้เวลา → 📍 ทำงานที่ไหน</div>';
+  openSheet(h);
+  FORM = null;
+  $("sheet").onclick = function (e) {
+    var b = e.target.closest("#hbBr [data-v]");
+    if (!b || BUSY) return;
+    var to = b.getAttribute("data-v");
+    BUSY = true; b.textContent = "⏳ " + to;
+    call("time.setHomeBranch", { id: String(id), branch: to, reqId: uid() }).then(function () {
+      BUSY = false; closeSheet(); toast("✅ " + name + " สาขาประจำ → " + to);
+      return refresh();
+    }, function (err) { BUSY = false; b.textContent = to; showErr(err.message); });
+  };
+}
+
+/* ═══ หน้าคน (สรุปงวด) ═══ */
+function prevPeriod(from) {
+  var a = ymd(from);
+  if (a.d >= 16) return { from: dayKey(a.y, a.m, 1), to: dayKey(a.y, a.m, 15) };
+  var last = new Date(Date.UTC(a.y, a.m - 1, 0)).getUTCDate();
+  return { from: dayKey(a.y, a.m - 1, 16), to: dayKey(a.y, a.m - 1, last) };
+}
+function nextPeriod(from) {
+  var a = ymd(from);
+  if (a.d < 16) { var last = new Date(Date.UTC(a.y, a.m, 0)).getUTCDate(); return { from: dayKey(a.y, a.m, 16), to: dayKey(a.y, a.m, last) }; }
+  return { from: dayKey(a.y, a.m + 1, 1), to: dayKey(a.y, a.m + 1, 15) };
+}
+function perLabel(f, t) { var a = ymd(f), b = ymd(t); return a.d + "–" + b.d + " " + TH_M[b.m - 1]; }
+function openPerson(id, from, to, keep) {
+  from = from || BOOT.period.from; to = to || BOOT.period.to;
+  return call("time.getPerson", { id: id, from: from, to: to }).then(function (d) {
+    var y = keep ? $("person").scrollTop : 0;
+    PER = { id: id, from: from, to: to, data: d };
+    drawPerson();
+    $("person").className = "on";
+    $("person").scrollTop = y;
+  }, function (e) { showErr(e.message); });
+}
+function closePerson() { PER = null; $("person").className = ""; }
+/* หน้าคน = หัว (ชื่อ · ยอดเหลือ · สาขาประจำ) + งวด ‹ › + สรุปงวด + ตารางทุกวัน · แตะวัน = daySheet */
+function drawPerson() {
+  var d = PER.data, s = d.summary || {}, e = d.emp || {}, cur = BOOT.period.from === PER.from, pv = prevPeriod(PER.from), nx = nextPeriod(PER.from);
+  var owe = s.owe != null ? s.owe : s.adv, neg = s.net < 0 ? "neg" : "";
+  var h = '<div class="ptop"><button class="ib" id="pBack">‹</button><h2>' + esc(e.name)
+    + "<small>#" + esc(e.id) + " · ราย" + esc(e.payType || "") + ' · เหลือ <b class="' + neg + '">' + baht(s.net) + "</b></small></h2>"
+    + '<button class="hbb2" id="pHome"><small>สาขาประจำ</small>' + esc(e.branch || "ยังไม่ได้ตั้ง") + " ›</button></div><main>"
+    + '<div class="pper"><button class="ib" id="pPrev" aria-label="งวดก่อน">‹</button><div class="pl">' + (cur ? "งวดนี้ " : "งวด ") + perLabel(PER.from, PER.to) + "</div>"
+    + '<button class="ib" id="pNext" aria-label="งวดถัดไป"' + (cur ? " disabled" : "") + ">›</button></div>"
+    + '<div class="psum"><div class="pn"><span>✅ คงเหลือสุทธิ</span><b class="' + neg + '">' + baht(s.net) + "</b></div>" + (s.net < 0 ? '<div class="pnx">เบิกเกินค่าแรงแล้ว</div>' : "")
+    + '<div class="p3"><div><span>💰 ค่าแรง</span><b class="g">' + baht(s.pay) + '</b></div><div><span>🎁 ทิป/โบนัส</span><b class="g">' + baht(s.tip) + "</b></div>"
+    + "<div><span>📒 เบิก" + (s.debt ? "+หนี้ยกมา" : "แล้ว") + '</span><b class="r">' + baht(owe) + "</b></div></div>"
+    + '<div class="pc">ทำงาน ' + (s.work || 0) + " วัน · " + (s.hrs || 0) + " ชม." + (s.late ? " · สาย " + s.late + " ครั้ง" : "") + (s.absent ? " · ไม่มา " + s.absent : "")
+    + (s.leave ? " · ลา/หยุด " + s.leave : "") + (s.fine ? " · หักสาย/เลิกก่อน " + baht(s.fine) : "") + (s.debt ? " · หนี้ยกมา " + baht(s.debt) : "") + "</div></div>";
+  var rows = d.rows || [];
+  h += rows.length ? personTable(rows, s) : '<div class="empty">งวดนี้ยังไม่มีวันทำงาน</div>';
+  $("person").innerHTML = h + "</main>";
+  pthTop();
+  $("pBack").onclick = closePerson;
+  $("pHome").onclick = function () { homeBrForm(e.id || PER.id, e.name || "", e.branch || ""); };
+  $("pPrev").onclick = function () { openPerson(PER.id, pv.from, pv.to); };
+  if (!cur) $("pNext").onclick = function () { openPerson(PER.id, nx.from, nx.to); };
+}
+function dayNum(s) { var a = ymd(s), w = new Date(Date.UTC(a.y, a.m - 1, a.d)).getUTCDay(); return { d: a.d, w: TH_D[w].slice(0, 2) + "." }; }
+function stTag(r) { return '<span class="st ' + stCls(r.status) + '">' + esc(r.status || "—") + "</span>"; }
+/* เนื้อของวัน (หน้าต่างวัน): เวลา · ชม. · ค่าแรง / สถานะ สาย สาขา / หมายเหตุ / รายการเบิก (เต็ม ไม่ตัด) */
+function dayBody(r) {
+  var late = r.fine && r.fine.late, early = r.fine && r.fine.early, t = "";
+  if (!noT(r.in) && noT(r.out)) t = 'เข้า <span' + (late ? ' class="fl"' : "") + ">" + esc(r.in) + "</span>";
+  else if (!noT(r.in) || !noT(r.out)) t = "<span" + (late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + "</span> – <span" + (early ? ' class="fl"' : "") + ">" + esc(r.out || "--:--") + "</span>";
+  var h = '<div class="d1"><span class="tt">' + (t || stTag(r)) + "</span>" + (r.hrs ? '<span class="hr">' + r.hrs + " ชม.</span>" : "")
+    + (r.pay ? '<b class="dp"><small>ค่าแรง</small>' + baht(r.pay) + "</b>" : "") + "</div>";
+  var f = r.fine || {}, tags = (t ? stTag(r) : "") + (f.late ? '<span class="tg fine">⏰ สาย −' + f.late + "</span>" : "") + (f.early ? '<span class="tg fine">🏃 เลิกก่อน −' + f.early + "</span>" : "")
+    + (r.tip ? '<span class="tg pay">ทิป ' + baht(r.tip) + "</span>" : "") + (r.branch ? '<span class="tg">📍 ' + esc(r.branch) + "</span>" : "");
+  if (tags) h += '<div class="d2">' + tags + "</div>";
+  if (r.note) h += '<div class="dn">📝 ' + esc(r.note) + "</div>";
+  (r.advs || []).forEach(function (a, k) {
+    var meta = [a.time, a.payer].filter(Boolean).join(" · ");
+    h += '<button class="ar" data-act="aedit" data-k="' + k + '"><span class="at"><b>เบิก ' + baht(a.amt) + "</b>" + (meta ? "<small>" + esc(meta) + "</small>" : "")
+      + (a.note ? "<i>" + esc(a.note) + "</i>" : "") + "</span>" + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : "") + '<span class="go">›</span></button>';
+  });
+  return h;
+}
+function dayActs() { return '<div class="da"><button class="sb adv" data-act="adv">💸 เบิก</button><button class="sb" data-act="edit">✏️ แก้เวลา</button></div>'; }
+function num(n) { return baht(n).replace("฿", ""); }
+/* วัดหลังโชว์ (openPerson ใส่ class "on" หลัง drawPerson): หัวตารางค้างใต้หัวหน้า (สูงตามตัวหนังสือ/ชื่อยาว)
+   + ย่อตัวหนังสือทั้งตารางทีละนิดจนเลขไม่ล้นช่อง (จอแคบ/ตัวหนังสือใหญ่/ยอดหลักหมื่น — ล้นแล้วเลขทับกัน = อ่านเงินผิด) */
+function pthTop() {
+  requestAnimationFrame(personFit);
+  try { document.fonts.ready.then(function () { if (PER) personFit(); }); } catch (e) {}
+}
+function personFit() {
+  if (!PER) return;
+  var t = $("person").querySelector(".ptop");
+  if (t && t.offsetHeight) $("person").style.setProperty("--pth", t.offsetHeight + "px");
+  var tb = $("person").querySelector(".ptb");
+  if (!tb || !tb.offsetWidth) return;
+  tb.style.fontSize = "";
+  var cells = tb.querySelectorAll(".pth > span, .ptr > span, .ptf > span"), fs = parseFloat(getComputedStyle(tb).fontSize), n = 0;
+  function over() { var a = 0; for (var k = 0; k < cells.length; k++) a += Math.max(0, cells[k].scrollWidth - cells[k].clientWidth - 1); return a; }
+  var was = over();
+  while (was > 0 && fs > 9 && n++ < 16) {
+    tb.style.fontSize = (fs - 0.5) + "px";
+    var now = over();
+    if (now >= was) { tb.style.fontSize = fs + "px"; break; }   // เล็กลงแล้วไม่ช่วย = คืนขนาดเดิม
+    fs -= 0.5; was = now;
+  }
+}
+window.addEventListener("resize", function () { if (PER) personFit(); });
+function personTable(rows, s) {
+  var h = '<div class="ptb"><div class="pth"><span>วัน</span><span>เข้า</span><span>ออก</span><span>ชม.</span><span class="n">ค่าแรง</span><span class="n">เบิก</span><span></span></div>';
+  rows.forEach(function (r, i) {
+    var n = dayNum(r.date), f = r.fine || {}, off = noT(r.in) && noT(r.out), mk = r.note ? "📝" : "";
+    var today = r.date === TODAY();
+    h += '<button class="ptr' + (today ? " today" : "") + '" data-i="' + i + '" data-act="day"><span class="c0"><b>' + n.d + "</b>" + (today ? "วันนี้" : n.w) + (mk ? '<span class="mk">' + mk + "</span>" : "") + "</span>";
+    if (off) h += '<span class="cx">' + stTag(r) + "</span>";
+    else h += tcell(r.in, f.late) + tcell(r.out, f.early) + "<span>" + (r.hrs || '<span class="z">–</span>') + "</span>";
+    h += '<span class="n ' + (r.pay ? "g" : "z") + '">' + (r.pay ? num(r.pay) : "–") + '</span><span class="n ' + (r.adv ? "r" : "z") + '">' + (r.adv ? num(r.adv) : "–") + '</span><span class="go">›</span></button>';
+  });
+  h += '<div class="ptf"><span class="c0">รวม</span><span class="cw">ทำงาน ' + (s.work || 0) + ' วัน</span><span>' + (s.hrs || 0) + "</span>"
+    + '<span class="n g">' + num(s.pay) + '</span><span class="n r">' + num(s.adv) + "</span><span></span></div>";
+  return h + "</div>";
+}
+function tcell(t, warn) { return noT(t) ? '<span class="z">–</span>' : "<span" + (warn ? ' class="fl"' : "") + ">" + esc(t) + "</span>"; }
+/* แถวในหน้าคนไม่มียอดงวด (per) — เอาจากหน้าวันถ้าเป็นวันเดียวกัน (เตือนเบิกเกิน) */
+function perRow(i) {
+  var r = PER && (PER.data.rows || [])[+i];
+  if (r && !r.per && DAY && DAY.date === r.date) { var dr = (DAY.rows || []).filter(function (x) { return String(x.id) === String(r.id); })[0]; if (dr) r.per = dr.per; }
+  return r || null;
+}
+/* แตะวันในตาราง = หน้าต่างวันนั้น (ทุกอย่างของวันนั้นในหน้าเดียว + ปุ่มเบิก/แก้เวลา) */
+function daySheet(i) {
+  var r = perRow(i);
+  if (!r) return;
+  openSheet("<h3>" + esc(thShort(r.date)) + " · " + esc(r.name || (PER.data.emp || {}).name || "") + '</h3><div class="dsh">' + dayBody(r) + dayActs() + "</div>");
+  FORM = { view: true, dirty: function () { return false; } };   // เปิดอยู่ = ข้อมูลใหม่จากเว็บรอจนปิด (กันหน้าต่างโชว์ของเก่า) · ไม่มีอะไรให้ถามทิ้ง
+  $("sheet").onclick = function (ev) {
+    if (ev.target.closest("[data-zoom]")) return;   // รูป = ขยาย (ตัวจับกดทั้งหน้าทำให้)
+    var b = ev.target.closest("[data-act]");
+    if (!b || BUSY) return;
+    if (NEED_REDRAW) {   // แถวในหน้าต่างเก่าแล้ว (เช่น รายการเบิกเพิ่งได้รหัสจากเว็บ) — โหลดใหม่ เปิดวันเดิม ให้กดอีกครั้ง
+      var dt = r.date;
+      FORM = null; BUSY = true;
+      refresh().then(function () {
+        BUSY = false;
+        if (!$("sheet").classList.contains("on")) return;   // ระหว่างโหลด ปิดหน้าต่างไปแล้ว = ไม่เปิดซ้ำ
+        var rows = (PER && PER.data.rows) || [];
+        for (var k = 0; k < rows.length; k++) if (rows[k].date === dt) { daySheet(k); toast("ข้อมูลเพิ่งอัปเดต — กดอีกครั้ง"); return; }
+        closeSheet();
+      }, function () { BUSY = false; closeSheet(); });
+      return;
+    }
+    var act = b.getAttribute("data-act");
+    if (act === "adv") advForm(r, null);
+    else if (act === "edit") editForm(r);
+    else if (act === "aedit") editAdvGuard(r, (r.advs || [])[+b.getAttribute("data-k")]);
+  };
+}
+$("person").addEventListener("click", function (e) { e.stopPropagation(); onPersonClick(e); });
+function onPersonClick(e) {
+  var z = e.target.closest("[data-zoom]");
+  if (z) { e.preventDefault(); zoom(z.getAttribute("data-zoom")); return; }
+  var b = e.target.closest("[data-act]"), cd = e.target.closest("[data-i]");
+  if (!b || !cd || !PER) return;
+  var act = b.getAttribute("data-act"), i = cd.getAttribute("data-i");
+  if (act === "day") daySheet(i);
+}
+
+/* ═══ ส่งไม่ผ่าน ═══ */
+var FAIL_OPEN = false;
+function showFails(clicked) {
+  var busyMsg = function () { if (!clicked) toast("⚠ มีรายการส่งขึ้นเว็บไม่ผ่าน — แตะป้ายด้านบนเพื่อดู", true); };
+  if (FORM && FORM.view && !FAIL_OPEN) closeSheet();
+  if (FAIL_OPEN || FORM) { busyMsg(); return; }
+  parent.api("att/failed").then(function (j) {
+    var items = j.items || [];
+    if (!items.length) { if (clicked) toast("ไม่มีรายการค้าง"); return; }
+    if (FORM && FORM.view && !FAIL_OPEN) closeSheet();
+    if (FAIL_OPEN || FORM) { busyMsg(); return; }   // ระหว่างรอ เปิดฟอร์มอื่นไปแล้ว — ไม่ทับ
+    FAIL_OPEN = true;
+    var h = "<h3>⚠ ส่งขึ้นเว็บไม่ผ่าน " + items.length + " รายการ</h3><div class=\"sub\">ในมือถือกลับเป็นแบบบนเว็บแล้ว — กด \"ทำใหม่\" เพื่อเปิดฟอร์มเดิม (มีรูปเดิม) แล้วบันทึกอีกครั้ง</div>";
+    items.forEach(function (c, i) {
+      var p = (c.args || [])[1] || {};
+      h += '<div class="dc" style="margin-top:10px"><div class="dh"><b>' + esc(c.label || c.fn) + "</b></div>"
+        + '<div class="hint" style="color:var(--adv)">' + esc(c.err || "") + "</div>"
+        + (p.photo ? '<img src="' + esc(p.photo) + '" style="width:64px;height:64px;object-fit:cover;border-radius:10px;margin-top:6px" alt="">' : "")
+        + '<div class="acts"><button class="b adv" data-fi="' + i + '">ทำใหม่</button><button class="b ed" data-fd="' + i + '">ทิ้ง</button></div></div>';
+    });
+    openSheet(h);
+    FORM = null;
+    $("sheet").onclick = function (e) {
+      var r1 = e.target.closest("[data-fi]"), d1 = e.target.closest("[data-fd]");
+      if (r1) redo(items[+r1.getAttribute("data-fi")]);
+      if (d1) { var c = items[+d1.getAttribute("data-fd")]; ask("ทิ้งรายการนี้? (" + (c.label || c.fn) + ")", "ทิ้ง", "ไม่ทิ้ง").then(function (y) { if (y) { dismissFail(c.lid); FAIL_OPEN = false; closeSheet(); } }); }
+    };
+  }).catch(function (e) { showErr(e.message); });
+}
+function dismissFail(lid) { parent.api("lapp/dismiss?app=attend", { app: "attend", lids: [lid] }).then(function () { if (LAPP.poll) LAPP.poll(); }, function () {}); }
+function redo(c) {
+  var a = c.args || [], route = a[0], p = a[1] || {};
+  if (/ไม่รู้จักคำสั่ง/.test(String(c.err || ""))) { showErr("เว็บเวลาทำงานยังไม่ได้อัปเดตให้รู้จักคำสั่งนี้ — อัปเดตเว็บก่อน แล้วค่อยกดทำใหม่ (หรือกดทิ้ง)"); return; }
+  FAIL_OPEN = false; closeSheet();
+  if (route === "time.addAdv" || route === "time.editAdv") {
+    rowOf(p.id, p.date).then(function (r) {
+      if (!r) { showErr("ไม่พบแถวของวันนั้นแล้ว — กดทิ้งรายการนี้ แล้วบันทึกใหม่"); return; }
+      var it = route === "time.editAdv" ? (r.advs || []).filter(function (x) { return x.item === p.item; })[0] : null;
+      // แก้รายการเดิมแต่รายการนั้นไม่อยู่แล้ว = ห้ามกลายเป็นเบิกใหม่ (เงินเบิ้ล)
+      if (route === "time.editAdv" && !it) { showErr("รายการเบิกเดิมไม่อยู่แล้ว (อาจถูกลบ/แก้จากเครื่องอื่น) — ตรวจในหน้า แล้วกดทิ้งรายการนี้"); return; }
+      advForm(r, it || null, { amt: p.amount, payer: p.payer, time: p.time, note: p.note, photo: p.photo || "", retry: c.lid });
+    });
+  } else if (route === "time.saveRows") {
+    var ch = p.changes || [], c0 = ch[0] || {};
+    var rows = {};
+    ch.forEach(function (x) { rows[x.date + "|" + x.id] = 1; });
+    if (Object.keys(rows).length > 1) { showErr("รายการนี้แก้หลายคน/หลายวันพร้อมกัน (จากหน้าเต็ม) — ทำใหม่ในหน้าเต็ม (⋯ → เปิดหน้าเต็ม) แล้วกดทิ้งรายการนี้"); return; }
+    rowOf(c0.id, c0.date).then(function (r) {
+      if (!r) { showErr("ไม่พบแถวของวันนั้นแล้ว — กดทิ้งรายการนี้"); return; }
+      var pre = { retry: c.lid };
+      ch.forEach(function (x) {
+        if (x.field === "in" || x.field === "out") pre[x.field] = x.value === "--:--" ? "" : x.value;
+        else if (x.field === "pay" && x.value === "") pre.payAuto = true;
+        else pre[x.field] = x.value;
+      });
+      editForm(r, pre);
+    });
+  } else if (route === "time.setHomeBranch") {
+    ask("ตั้งสาขาประจำของ " + (NAMES[String(p.id)] || ("#" + p.id)) + " เป็น " + p.branch + " อีกครั้ง?", "ส่งใหม่", "ยกเลิก").then(function (y) {
+      if (!y) return;
+      call("time.setHomeBranch", { id: String(p.id), branch: p.branch, reqId: uid() }).then(function () { dismissFail(c.lid); toast("✅ ส่งใหม่แล้ว"); return refresh(); }, function (e) { showErr(e.message); });
+    });
+  } else {
+    toast("รายการนี้ทำใหม่จากแอพไม่ได้ — กดทิ้ง แล้วทำใหม่เอง", true);
+  }
+}
+window.appOpen = function (v) { if (v === "fail") showFails(true); };
+
+/* ═══ เมนู ═══ */
+function theme() { var t = ls("attTheme") || "auto"; if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); }
+function bigText() { document.documentElement.style.setProperty("--fs", ls("attBig") === "1" ? "17px" : "15px"); if (PER) pthTop(); }
+theme(); bigText();
+function menu() {
+  var st = LAPP.state && LAPP.state() || {}, t = ls("attTheme") || "auto";
+  var wup = false, wv = "";   // Android: หน้าแอพอัปเดตเอง (ตัวแอพรุ่นที่มี WebUpdate) · iPhone ไม่มี
+  try { wup = typeof ShopAndroid.webCheck === "function"; wv = wup ? String(ShopAndroid.webVersion() || "") : ""; } catch (e) {}
+  var h = "<h3>เมนู</h3>"
+    + '<button class="mi" data-m="sync"><span>🔄</span><div>ดึงข้อมูลจากเว็บตอนนี้<small>' + (st.lastOk ? "ตรงกับเว็บล่าสุด " + esc(String(st.lastOk).replace("T", " ").slice(0, 16)) : "ยังไม่เคยดึงสำเร็จ") + "</small></div></button>"
+    + '<button class="mi" data-m="fail"><span>⚠</span><div>รายการส่งไม่ผ่าน<small>' + ((st.failed || []).length ? (st.failed.length + " รายการ — แตะเพื่อทำใหม่") : "ไม่มี") + "</small></div></button>"
+    + '<button class="mi" data-m="full"><span>🖥️</span><div>เปิดหน้าเต็มแบบในคอม<small>ประวัติหลายวัน · รายเดือน · ทุกอย่างแบบหน้าเว็บ</small></div></button>'
+    + '<button class="mi" data-m="theme"><span>🌗</span><div>สีหน้าจอ<small>' + { auto: "ตามมือถือ", light: "สว่าง", dark: "มืด" }[t] + " — แตะเพื่อเปลี่ยน</small></div></button>"
+    + '<button class="mi" data-m="big"><span>🔠</span><div>ตัวหนังสือ<small>' + (ls("attBig") === "1" ? "ใหญ่" : "ปกติ") + " — แตะเพื่อเปลี่ยน</small></div></button>"
+    + '<button class="mi" data-m="link"><span>🔑</span><div>เปลี่ยนลิงก์ / รหัสเจ้าของ<small>ใช้เมื่อเปลี่ยนรหัสเจ้าของบนเว็บ</small></div></button>'
+    + (wup ? '<button class="mi" data-m="wup"><span>⬇️</span><div>เช็คหน้าแอพรุ่นใหม่<small>ปกติแอพอัปเดตหน้าแอพเองตอนเปิดแอพ</small></div></button>' : "")
+    + '<div class="hint" style="text-align:center;margin-top:10px" id="ver"></div>';
+  openSheet(h);
+  try { $("ver").textContent = "รุ่นแอพ " + JSON.parse(ShopAndroid.link()).version + (wv ? " · หน้าแอพ " + wv : "") + (LAPP.webBuild ? " · กติกาเว็บ " + LAPP.webBuild : ""); } catch (e) { $("ver").textContent = ""; }
+  $("sheet").onclick = function (e) {
+    var m = e.target.closest("[data-m]"); if (!m) return;
+    var k = m.getAttribute("data-m");
+    if (k === "sync") { closeSheet(); LAPP.sync().then(function () { toast("กำลังดึงข้อมูลจากเว็บ…"); }, function (x) { toast("❌ " + x.message, true); }); }
+    if (k === "fail") { closeSheet(); showFails(true); }
+    if (k === "full") { closeSheet(); location.href = "index.html"; }
+    if (k === "theme") { ls("attTheme", { auto: "light", light: "dark", dark: "auto" }[t]); theme(); closeSheet(); menu(); }
+    if (k === "big") { ls("attBig", ls("attBig") === "1" ? "0" : "1"); bigText(); closeSheet(); menu(); }
+    if (k === "link") { closeSheet(); try { parent.goSetup(); } catch (x) {} }
+    if (k === "wup") { closeSheet(); toast("กำลังเช็คหน้าแอพรุ่นใหม่…"); try { ShopAndroid.webCheck(); } catch (x) {} }
+  };
+}
+/* ป้ายเตือนรหัสเจ้าของเปลี่ยน / ค้างส่งนาน */
+setInterval(function () {
+  dayRoll();
+  var st = LAPP.state && LAPP.state(), h = "";
+  // คำสั่งที่รอส่งแต่คิดบนชีตชุดใหม่ไม่ได้ (หายจากหน้าจอแต่ยังรอส่งอยู่) — บอกไว้ กันบันทึกซ้ำ
+  var bad = (LAPP.bad || []).map(function (lid) { var c = st && (st.q || []).filter(function (x) { return x.lid === lid; })[0]; return c ? c.label : ""; }).filter(Boolean);
+  if (st && st.needLink) h = '<div class="banner" id="bnL">🔑 ' + esc(st.needLink) + " — แตะที่นี่</div>";
+  else if (bad.length) h = '<div class="banner w">⏳ รอส่งขึ้นเว็บ (ยังแสดงในหน้านี้ไม่ได้): ' + esc(bad.join(" · ")) + " — อย่าบันทึกซ้ำ</div>";
+  else if (st && st.oldest && Date.now() - st.oldest > 3 * 3600e3) h = '<div class="banner w">⏳ มีรายการค้างส่งตั้งแต่ ' + esc(new Date(st.oldest).toLocaleString("th-TH")) + " — ต่ออินเทอร์เน็ตแล้วแอพส่งเอง</div>";
+  if ($("bn").innerHTML !== h) { $("bn").innerHTML = h; var l = $("bnL"); if (l) l.onclick = function () { try { parent.goSetup(); } catch (x) {} }; }
+}, 3000);
+</script>
+</body></html>

@@ -1034,6 +1034,8 @@ function bigText() { document.documentElement.style.setProperty("--fs", ls("attB
 theme(); bigText();
 function menu() {
   var st = LAPP.state && LAPP.state() || {}, t = ls("attTheme") || "auto";
+  var wup = false, wv = "";   // Android: หน้าแอพอัปเดตเอง (ตัวแอพรุ่นที่มี WebUpdate) · iPhone ไม่มี
+  try { wup = typeof ShopAndroid.webCheck === "function"; wv = wup ? String(ShopAndroid.webVersion() || "") : ""; } catch (e) {}
   var h = "<h3>เมนู</h3>"
     + '<button class="mi" data-m="sync"><span>🔄</span><div>ดึงข้อมูลจากเว็บตอนนี้<small>' + (st.lastOk ? "ตรงกับเว็บล่าสุด " + esc(String(st.lastOk).replace("T", " ").slice(0, 16)) : "ยังไม่เคยดึงสำเร็จ") + "</small></div></button>"
     + '<button class="mi" data-m="fail"><span>⚠</span><div>รายการส่งไม่ผ่าน<small>' + ((st.failed || []).length ? (st.failed.length + " รายการ — แตะเพื่อทำใหม่") : "ไม่มี") + "</small></div></button>"
@@ -1041,9 +1043,10 @@ function menu() {
     + '<button class="mi" data-m="theme"><span>🌗</span><div>สีหน้าจอ<small>' + { auto: "ตามมือถือ", light: "สว่าง", dark: "มืด" }[t] + " — แตะเพื่อเปลี่ยน</small></div></button>"
     + '<button class="mi" data-m="big"><span>🔠</span><div>ตัวหนังสือ<small>' + (ls("attBig") === "1" ? "ใหญ่" : "ปกติ") + " — แตะเพื่อเปลี่ยน</small></div></button>"
     + '<button class="mi" data-m="link"><span>🔑</span><div>เปลี่ยนลิงก์ / รหัสเจ้าของ<small>ใช้เมื่อเปลี่ยนรหัสเจ้าของบนเว็บ</small></div></button>'
+    + (wup ? '<button class="mi" data-m="wup"><span>⬇️</span><div>เช็คหน้าแอพรุ่นใหม่<small>ปกติแอพอัปเดตหน้าแอพเองตอนเปิดแอพ</small></div></button>' : "")
     + '<div class="hint" style="text-align:center;margin-top:10px" id="ver"></div>';
   openSheet(h);
-  try { $("ver").textContent = "รุ่นแอพ " + JSON.parse(ShopAndroid.link()).version + (LAPP.webBuild ? " · กติกาเว็บ " + LAPP.webBuild : ""); } catch (e) { $("ver").textContent = ""; }
+  try { $("ver").textContent = "รุ่นแอพ " + JSON.parse(ShopAndroid.link()).version + (wv ? " · หน้าแอพ " + wv : "") + (LAPP.webBuild ? " · กติกาเว็บ " + LAPP.webBuild : ""); } catch (e) { $("ver").textContent = ""; }
   $("sheet").onclick = function (e) {
     var m = e.target.closest("[data-m]"); if (!m) return;
     var k = m.getAttribute("data-m");
@@ -1053,6 +1056,7 @@ function menu() {
     if (k === "theme") { ls("attTheme", { auto: "light", light: "dark", dark: "auto" }[t]); theme(); closeSheet(); menu(); }
     if (k === "big") { ls("attBig", ls("attBig") === "1" ? "0" : "1"); bigText(); closeSheet(); menu(); }
     if (k === "link") { closeSheet(); try { parent.goSetup(); } catch (x) {} }
+    if (k === "wup") { closeSheet(); toast("กำลังเช็คหน้าแอพรุ่นใหม่…"); try { ShopAndroid.webCheck(); } catch (x) {} }
   };
 }
 /* ป้ายเตือนรหัสเจ้าของเปลี่ยน / ค้างส่งนาน */
