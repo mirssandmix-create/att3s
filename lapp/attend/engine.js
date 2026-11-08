@@ -1,5 +1,5 @@
 /* แอพเวลาทำงาน: ตัวคิดเบื้องหลังไฟล์เดียว — สร้างด้วย tools/sync_attend.py จาก ShopPOS www/lapp (ห้ามแก้ตรง ๆ) */
-/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · e5efb2dfe0 */
+/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · cc3015b940 */
 self.LAPP_APP = {
   okResult: function (r) { return !(r && typeof r === "object" && r.ok === false); },   // api() ไม่สำเร็จ = ไม่ส่งขึ้นเว็บ
   relocate: function (fn, a) { if (fn === "api" && a) posRelocate_(a[0], a[1]); },   // แถวเลื่อน (ปิดยอดแล้ว) = หาแถวใหม่ก่อนคิดซ้ำ
@@ -473,7 +473,7 @@ onmessage = function (e) {
 
 ;
 /* ---- code.js ---- */
-/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · e5efb2dfe0 */
+/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · cc3015b940 */
 // ═══════════════════════════════════════════════════════════════════
 // 3S Sukcharoen Recycle — Web App  v1.0
 // ไฟล์ 00: ค่าตั้งต้นทั้งหมด  (แก้ที่นี่ที่เดียว)
@@ -1089,6 +1089,11 @@ function scrubPay_(out) {
     (r.advs || []).forEach(function(a) { a.photo = ""; });   // รูปตอนเบิก = เจ้าของดูเท่านั้น
   });
   blankPay_(out.summary);
+  // ยอดแยกสาขาคือการ์ดชุดเดียวกัน — ลืมตรงนี้ = ลูกน้องเลือกสาขาแล้วเห็นค่าแรง
+  Object.keys(out.byBranch || {}).forEach(function(k) {
+    blankPay_(out.byBranch[k].summary);
+    out.byBranch[k].byMonth.forEach(function(m) { blankPay_(m.summary); });
+  });
   out.hidePay = true;
   return out;
 }
@@ -1229,6 +1234,7 @@ function summarize_(rows, debt) {
   var s = { days: rows.length, work: 0, absent: 0, late: 0, leave: 0,
             hrs: 0, pay: 0, adv: 0, tip: 0, branches: {},
             fine: 0, fineLate: 0, fineEarly: 0 };   // หักสาย/เลิกก่อน (รวมในค่าแรงแล้ว แยกโชว์)
+  var came = {};   // s.work นับเป็นวัน (ช่วงหลายวัน คนเดียวนับหลายครั้ง) — "มาทำงานกี่คน" ต้องนับหัว
   rows.forEach(function(r) {
     s.hrs += r.hrs; s.pay += r.pay; s.adv += r.adv; s.tip += r.tip;
     if (r.fine) { s.fine += r.fine.total; if (r.fine.late) s.fineLate++; if (r.fine.early) s.fineEarly++; }
@@ -1236,9 +1242,10 @@ function summarize_(rows, debt) {
     var lv  = isLeaveStatus_(r.status);
     if (off)      s.absent++;
     else if (lv)  s.leave++;
-    else { s.work++; if (r.status.indexOf("มาสาย") >= 0) s.late++; }
+    else { s.work++; came[r.id] = 1; if (r.status.indexOf("มาสาย") >= 0) s.late++; }
     if (r.branch && !off && !lv) s.branches[r.branch] = (s.branches[r.branch] || 0) + 1;
   });
+  s.people = Object.keys(came).length;
   s.hrs   = Math.round(s.hrs * 100) / 100;
   s.pay   = Math.round(s.pay * 100) / 100;
   s.debt  = debt || 0;
@@ -1248,6 +1255,86 @@ function summarize_(rows, debt) {
     .sort(function(a, b) { return s.branches[b] - s.branches[a]; })
     .map(function(k) { return k + " × " + s.branches[k]; });
   return s;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 🏬 แยกสาขา 2 / 4 — ดร็อปดาวน์ในหน้าเวลาทำงาน (4 พ.ย. 2569)
+//    ยอดแต่ละสาขาคิดที่นี่ด้วย summarize_ ตัวเดียวกับยอดรวม หน้าเว็บแค่เลือกชุดมาโชว์ (ฝั่งเว็บห้ามคิดเอง — ดู 01_core)
+//    แถวนี้นับเป็นสาขาไหน:
+//      1) ช่องสาขาของแถววันนั้นบอกสาขาเดียว ("สาขา 2" · "สาขา 2+3" = 2 เพราะ 3 ไม่ใช่ตัวเลือกของร้านหลัก)
+//      2) ช่องว่าง หรือลง "2+4" = ดูสาขาประจำของคนนั้น (เช่น คนประจำ 2+4 วันนี้ลง "สาขา 4" = นับสาขา 4 ตามข้อ 1)
+//      3) ยังบอกไม่ได้ (ประจำ 2+4 แล้ววันนั้นก็ไม่ได้ระบุ · ไม่ได้ลงเลย) หรือวันนั้นอยู่สาขาอื่นจริง ("สาขา 3") = "none"
+//         นับในรวมสองสาขาอย่างเดียว ไม่นับซ้ำสองที่ → สาขา 2 + สาขา 4 + none = รวมเสมอ (เงินไม่เบิ้ล)
+// ═══════════════════════════════════════════════════════════════════
+function branchKey_(rowBranch, empBranch) {
+  var one = function(s) {
+    var nums = String(s || "").match(/\d+/g) || [];
+    var main = nums.filter(function(n) { return n === "2" || n === "4"; });
+    if (main.length === 1) return main[0];
+    return nums.length && !main.length ? "x" : "";   // "x" = สาขาอื่นจริง ๆ ไม่ดูสาขาประจำต่อ · "" = ว่าง/2+4 ดูต่อ
+  };
+  var k = one(rowBranch) || one(empBranch);
+  return k === "2" || k === "4" ? k : "none";
+}
+
+function monthsOf_(rows) {
+  var months = {};
+  rows.forEach(function(r) {
+    var ym = r.date.slice(0, 7);
+    (months[ym] = months[ym] || []).push(r);
+  });
+  return Object.keys(months).sort().reverse().map(function(ym) {
+    return { ym: ym, n: months[ym].length, summary: summarize_(months[ym], 0) };
+  });
+}
+
+// ใส่ r.bk ให้ทุกแถว แล้วคืนยอดแยกสาขา — หน้าเว็บกรองเองได้โดยไม่ต้องขอข้อมูลใหม่
+function branchView_(rows, scope) {
+  var em = empMap_(scope), out = {};
+  rows.forEach(function(r) { var e = em[r.id]; r.bk = branchKey_(r.branch, e ? e.branch : ""); });
+  ["2", "4", "none"].forEach(function(k) {
+    var list = rows.filter(function(r) { return r.bk === k; }), dates = {};
+    list.forEach(function(r) { dates[r.date] = 1; });
+    out[k] = { summary: summarize_(list, 0), dayCount: Object.keys(dates).length, byMonth: monthsOf_(list) };
+  });
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 🏬 ตั้งสาขาประจำของพนักงาน — ปุ่ม 🏬 สาขาประจำ ในหน้าเวลาทำงาน (8 พ.ย. 2569)
+//    เขียนชีตรายชื่อพนักงาน ช่อง L (📍 สาขาพื้นฐาน) ช่องเดียว · เจ้าของเท่านั้น
+//    มีผลกับวันที่ช่อง "ทำงานที่ไหน" ของวันนั้นยังว่าง/ลง 2+4 (branchKey_ ข้อ 2 · สคริปต์ในชีตเติมสาขาประจำให้แถววันใหม่)
+//    วันที่ลงไว้แล้วไม่เปลี่ยน — ย้ายเฉพาะวันใช้ ✏️ ช่อง branch ของ time.saveRows
+//    เลือกได้แค่ HOME_BRANCHES (ค่าเดียวกับดร็อปดาวน์ในชีต) — กันชื่อสาขาแปลก ๆ ลงชีต
+// ═══════════════════════════════════════════════════════════════════
+var HOME_BRANCHES = ["สาขา 2", "สาขา 4", "สาขา 2+4"];
+
+function timeSetHomeBranch(p, requestId) {
+  requireOwner_();
+  var id = String(p && p.id != null ? p.id : "").trim(), b = normBranch_(p && p.branch);
+  if (!id) throw new Error("ไม่ได้บอกรหัสพนักงาน");
+  if (HOME_BRANCHES.indexOf(b) < 0)
+    throw new Error('สาขาประจำ "' + b + '" เลือกไม่ได้ — ได้แค่ ' + HOME_BRANCHES.join(" / "));
+  return onceOnly_(requestId, function() {
+    return withLock_(function() {
+      cacheClear_();
+      var rows = rows_("TIME", SH.EMPLOYEES, 12), hit = [];
+      rows.forEach(function(r, i) { if (String(r[EMP.ID]).trim() === id) hit.push(i); });
+      if (!hit.length) throw new Error("ไม่พบรหัส " + id + " ในชีตรายชื่อพนักงาน");
+      if (hit.length > 1) throw new Error("รหัส " + id + " มี " + hit.length + " แถวในชีตรายชื่อพนักงาน — แก้ในชีตก่อน");
+      var row = hit[0] + 2, sh = sheet_("TIME", SH.EMPLOYEES);
+      // อ่านแถวจากชีตตรงอีกครั้งก่อนเขียน — สคริปต์ในชีต (คนละโปรเจกต์ ล็อกร่วมกันไม่ได้) อาจจัดแถวใหม่ระหว่างทาง
+      var cur = sh.getRange(row, 1, 1, EMP.BRANCH + 1).getValues()[0];
+      if (String(cur[EMP.ID]).trim() !== id) throw new Error("แถวรายชื่อพนักงานเลื่อนระหว่างบันทึก — ลองใหม่อีกครั้ง");
+      var old = normBranch_(cur[EMP.BRANCH]);
+      if (old !== b) {
+        sh.getRange(row, EMP.BRANCH + 1).setValue(b);
+        SpreadsheetApp.flush();
+      }
+      cacheClear_();
+      return { id: id, branch: b, old: old, changed: old !== b };
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1304,7 +1391,7 @@ function timeGetDay(dateStr, scope) {
     canClose: canCloseDay_(dateStr, src),
     closeReq: (src === "DAILY" && req) ? req : null,
     timeLocked: (src === "DAILY" && LOCK_TIME_ON_OPEN_DAY),
-    rows: out, summary: summarize_(out, 0),
+    rows: out, summary: summarize_(out, 0), byBranch: branchView_(out, scope),
     per: per ? { from: P.from, to: dateStr } : null
   });
 }
@@ -1377,25 +1464,21 @@ function historyOf_(from, to, scope, ymA, ymB) {
   });
 
   // สรุปย่อรายเดือน + รายวัน
-  var months = {}, days = [], cur = null;
+  var days = [], cur = null;
   flat.forEach(function(r) {
-    var ym = r.date.slice(0, 7);
-    (months[ym] = months[ym] || []).push(r);
     if (!cur || cur.date !== r.date) { cur = { date: r.date, list: [] }; days.push(cur); }
     cur.list.push(r);
   });
   days.forEach(function(d) { d.summary = summarize_(d.list, 0); d.n = d.list.length; delete d.list; });
 
-  var byMonth = Object.keys(months).sort().reverse().map(function(ym) {
-    return { ym: ym, n: months[ym].length, summary: summarize_(months[ym], 0) };
-  });
+  var byMonth = monthsOf_(flat);
 
   // ⚠️ ต้อง scrub ด้วย — HIDE_PAY_FROM_STAFF กับ STAFF_CAN_MONTH เป็นคนละสวิตช์
   //    เปิดให้ลูกน้องดูรายเดือนเมื่อไหร่ ค่าแรงจะหลุดทันทีถ้าไม่กรองตรงนี้
   var out = scrubPay_({
     ymFrom: R.a, ymTo: R.b, from: from, to: to, scope: (scope === "special" ? "special" : "normal"),
     rows: flat, days: days, byMonth: byMonth, dup: C.dup,
-    summary: summarize_(flat, 0)
+    summary: summarize_(flat, 0), byBranch: branchView_(flat, scope)
   });
   if (out.hidePay) {
     byMonth.forEach(function(m) { blankPay_(m.summary); });
@@ -2131,6 +2214,8 @@ var ROUTES = {
   "time.delAdv":    { fn: function(p) { return timeDelAdv(p, p.reqId); },                   write: true  },
   "time.editAdv":   { fn: function(p) { return timeEditAdv(p, p.reqId); },                  write: true  },
   "time.closeDay":  { fn: function(p) { return timeCloseDay(p); },                          write: true  },
+  // 🏬 [8 พ.ย. 2569] ตั้งสาขาประจำ (ชีตรายชื่อพนักงาน ช่อง L) — ปุ่ม 🏬 สาขาประจำ ในหน้ารายวัน
+  "time.setHomeBranch": { fn: function(p) { return timeSetHomeBranch(p, p.reqId); },     write: true  },
   "ping":           { fn: function(p) { return { ok: true, at: todayStr_() }; },            write: false }
 };
 

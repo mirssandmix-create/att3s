@@ -2,10 +2,10 @@
 <html>
 <head><script>try{window.ShopAndroid=parent.ShopAndroid}catch(e){}</script><meta name="format-detection" content="telephone=no"><meta name="robots" content="noindex,nofollow"><style>@supports (-webkit-touch-callout:none){body *{cursor:pointer}}</style>
 <base target="_blank">
-<script>/* ต่อกับตัวโปรแกรม ShopPOS (tools/lapp-sync.py) · e5efb2dfe0 */
+<script>/* ต่อกับตัวโปรแกรม ShopPOS (tools/lapp-sync.py) · cc3015b940 */
 var LAPP_CFG = { app: "attend", worker: "worker.js", badge: "lappSt",
   writes: ["api"], online: [],
-  isWrite: function (fn, a) { return fn === "api" && ["time.saveRows", "time.addAdv", "time.delAdv", "time.editAdv", "time.closeDay"].indexOf(a && a[0]) >= 0; },
+  isWrite: function (fn, a) { return fn === "api" && ["time.saveRows", "time.addAdv", "time.delAdv", "time.editAdv", "time.closeDay", "time.setHomeBranch"].indexOf(a && a[0]) >= 0; },
   label: function (fn, a) { var p = (a && a[1]) || {}; return String(a && a[0]) + (p.date ? " " + p.date : "") + (p.id ? " #" + p.id : ""); },
   onRebase: function () { if (typeof lappRebase === "function") lappRebase(); } };
 </script>
@@ -73,6 +73,39 @@ button.print{background:#0f2942}
 .cell span{font-size:15px;font-weight:700}
 .cell.hi{background:#fdedeb}.cell.hi span{color:#c0392b}
 .cell.ok{background:#eaf7ef}.cell.ok span{color:#1b7a43}
+
+/* 🏬 แถบเทียบคนมาทำงานรายสาขา — ตัวเลขใหญ่ กรอบบาง เห็นครบทุกสาขา · กดกล่อง = เลือกดูสาขานั้น (8 พ.ย.) */
+.brs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-bottom:11px}
+.brs div{background:#f2f6fb;border:1px solid #dde5ee;border-radius:8px;padding:8px 11px}
+.brs div.on{background:#eaf2fb;border-color:#1b4d89;box-shadow:inset 0 0 0 1px #1b4d89}
+.brs b{display:block;font-size:12px;font-weight:700;color:#5a6b7d}
+.brs div.on b{color:#1b4d89}
+.brs span{display:block;font-size:13px;font-weight:700;color:#0f2942}
+.brs i{font-style:normal;font-size:26px;line-height:1.25;margin:0 1px}
+.brs small{display:block;font-size:11.5px;font-weight:600;color:#5a6b7d}
+.brs div[data-br]{cursor:pointer;-webkit-user-select:none;user-select:none;transition:border-color .12s,background .12s}
+.brs div[data-br]:hover{border-color:#1b4d89;background:#eaf2fb}
+.brs div[data-br]:focus-visible{outline:2px solid #1b4d89;outline-offset:2px}
+
+/* 📍 ทำงานที่ไหน (แถวที่กด ✏️) + 🏬 หน้าต่างสาขาประจำ — 8 พ.ย. */
+.bf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;font-weight:700;color:#0f2942;padding:3px 0}
+.bf select{width:auto;min-width:150px;flex:0 0 auto;height:30px;padding:3px 8px;border:1px solid #cfdbe7;border-radius:6px;background:#fff;font-weight:700;color:#0f2942;-webkit-appearance:auto;appearance:auto}
+.bf small{color:#5a6b7d;font-weight:600}
+.ov{position:fixed;inset:0;z-index:60;background:rgba(15,41,66,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+.ovc{background:#fff;border-radius:10px;width:100%;max-width:620px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.ovh{display:flex;align-items:center;gap:8px}
+.ovh b{font-size:15px;color:#0f2942}
+.ovn{font-size:12px;font-weight:600;color:#5a6b7d;margin:5px 0 8px;line-height:1.6}
+.hbr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 4px;border-top:1px solid #eef2f6}
+.hbr .nm{flex:1 1 170px;font-weight:700;color:#0f2942;font-size:13.5px}
+.hbr .nm small{color:#5a6b7d;font-weight:600;margin-left:5px}
+.caps{display:flex;gap:4px;flex-wrap:wrap}
+.caps button{background:#f2f6fb;color:#0f2942;border:1px solid #c9d6e3;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:700}
+.caps button:hover{border-color:#1b4d89}
+.caps button.on{background:#1b4d89;border-color:#1b4d89;color:#fff}
+.caps button:disabled{background:#f2f6fb;color:#0f2942;opacity:.55;cursor:default}
+.caps button.on:disabled{background:#1b4d89;color:#fff}
+.hbmsg{font-size:12px;font-weight:700;color:#1b7a43;min-width:84px}
 
 .bch{background:#fff7e0;padding:9px;border-radius:6px;font-size:13px;text-align:center;
      font-weight:700;margin-bottom:11px}
@@ -294,6 +327,7 @@ tbody tr.sub.busy td{opacity:.55}
   <div id="barD" class="bar noprint">
     <span style="font-size:12.5px;font-weight:700;color:#0f2942">📅 วันล่าสุด · ดูวันอื่นที่แท็บ 📜 ประวัติการทำงาน</span>
     <span class="spacer"></span>
+    <button class="gh sm" id="hbOpen" title="ตั้งสาขาประจำของพนักงาน (ชีตรายชื่อพนักงาน)">🏬 สาขาประจำ</button>
     <button class="save" id="save2" disabled>💾 บันทึก (0)</button>
   </div>
 
@@ -405,8 +439,10 @@ call("time.bootstrap",{withDay:true}).then(function(b){
   if(b.canDay && (b.special||[]).length) el("tabS").style.display="";
   if(!b.canMonth && !b.canDay) document.querySelector(".tabs").style.display="none";
   setTab(b.canDay ? "day" : "person");        // ลูกน้องไม่มีสิทธิ์ดูรายวัน → เด้งไปรายบุคคล
-  el("emp").innerHTML='<option value="">— เลือกพนักงาน —</option>'+b.employees.map(function(e){
-    return '<option value="'+esc(e.id)+'">'+esc(e.id)+' — '+esc(e.name)+'</option>';}).join("");
+  // ⭐ คนพิเศษอยู่ท้ายรายการเป็นกลุ่มแยก (เซิร์ฟเวอร์ยึดกลุ่มตามตัวคนเอง) — เดิมเลือกไม่ได้ ไม่มีใบค่าแรง/หนี้ยกมาของคนจด (3 พ.ย.)
+  var opt=function(e){ return '<option value="'+esc(e.id)+'">'+esc(e.id)+' — '+esc(e.name)+'</option>'; };
+  el("emp").innerHTML='<option value="">— เลือกพนักงาน —</option>'+b.employees.map(opt).join("")+
+    ((b.special||[]).length ? '<optgroup label="⭐ คนพิเศษ">'+b.special.map(opt).join("")+'</optgroup>' : "");
 }).catch(fail);
 
 function fail(e){ el("body").innerHTML='<div class="note err">❌ '+esc(e.message)+'</div>'; }
@@ -521,9 +557,102 @@ function ymAdd(ym,n){
 // ── ปุ่มรายวัน ──
 
 
+/* ═══ 🏬 ดูแยกสาขา — กดกล่องในแถบเทียบ (รวมสองสาขา · สาขา 2 · สาขา 4 · ไม่แยกสาขา) ใน 📅 ดูรายวัน · 📜 ประวัติการทำงาน · ⭐ คนพิเศษ (4 พ.ย. 2569) ═══
+   8 พ.ย.: เอาดร็อปดาวน์ "สาขา" ในแถบบนออก — ผู้ใช้กดที่กล่องแล้วไม่มีอะไรเกิด อยากเลือกที่กล่องเลย · กล่อง "ไม่แยกสาขา" กดดูได้ด้วย
+   BRANCH: "" = รวมสองสาขา (ค่าเริ่มต้น แถว/ยอดเหมือนเดิม) | "2" | "4" | "none" = ไม่แยกสาขา — ค่าเดียวกันทุกแท็บ
+   แต่ละเครื่องเลือกเอง ไม่เก็บที่ไหน: เปิดหน้าใหม่กลับเป็นรวมสองสาขาเสมอ
+   แถวไหนอยู่สาขาไหน (r.bk) + ยอดแต่ละสาขา (d.byBranch) คิดที่เซิร์ฟเวอร์ (branchKey_ ใน 03_time.gs) — หน้าเว็บแค่เลือกชุดมาโชว์ ไม่คิดเงินเอง
+   ใบพิมพ์ออกตามที่เลือก: แถวที่ไม่เลือกไม่อยู่ในหน้า และหัวกระดาษบอกชื่อสาขา */
+var BRANCH="";
+function brName(k){ return k==="none" ? "ไม่แยกสาขา" : k ? "สาขา "+k : "รวมสองสาขา"; }
+// กด / Enter / เว้นวรรค ที่กล่องในแถบเทียบ = เลือกสาขานั้น — ฟังที่ document ครั้งเดียว เพราะแถบเทียบวาดใหม่ทุกรอบ
+function brPick(e){
+  var b=e.target&&e.target.closest?e.target.closest("#brHead [data-br]"):null;
+  if(!b) return;
+  var key=e.type==="keydown";
+  if(key && e.key!=="Enter" && e.key!==" ") return;
+  if(key) e.preventDefault();
+  var k=b.getAttribute("data-br");
+  setBranch(k);
+  if(key){ var n=document.querySelector('#brHead [data-br="'+k+'"]'); if(n) n.focus(); }   // วาดใหม่แล้วโฟกัสหาย — คืนให้กล่องเดิม
+}
+document.addEventListener("click",brPick);
+document.addEventListener("keydown",brPick);
+function setBranch(k){
+  if(k===BRANCH) return;   // กดกล่องที่เลือกอยู่แล้ว = ไม่ต้องวาดใหม่
+  BRANCH=k;
+  // กรองในหน้านี้ ไม่โหลดใหม่ — ที่แก้ค้าง/ช่องเบิกที่เปิดอยู่ไม่หาย (data-i ชี้แถวจริงเสมอ)
+  // กำลังโหลด/โหลดไม่ขึ้น (ไม่มีแถบเทียบ) = แค่จำไว้ ตอนวาดอ่านเอง — ไม่วาดข้อมูลแท็บก่อนทับหน้าโหลด
+  if(el("brHead")) PAINT();
+}
+function brKey(d){ return d && d.byBranch ? BRANCH : ""; }
+function brIdx(){ var k=brKey(DATA); return allIdx().filter(function(i){ return !k || DATA.rows[i].bk===k; }); }
+function brPart(d){
+  var k=brKey(d), B=k?d.byBranch[k]:null;
+  return { name:brName(k), summary:B?B.summary:d.summary, byMonth:B?B.byMonth:d.byMonth, dayCount:B?B.dayCount:(d.days||[]).length };
+}
+/* ฟอร์มที่เปิดค้างบนแถวที่ตัวกรองสาขาซ่อนอยู่ — สลับสาขาแล้วไม่หาย แต่มองไม่เห็น (4 พ.ย.)
+   all = ชื่อทุกคนที่เปิด ✏️ / + เบิก / ✏️ รายการเบิก ค้าง (ป้ายบนจอ)
+   drafts = + เบิก ที่กรอกแล้ว ออกจากหน้านี้/💾 แล้วหาย · edits = ✏️ รายการเบิกที่แก้แล้ว ที่แก้ไม่ถูกบันทึก แต่ยอดเดิมยังอยู่ · เปิดเฉย ๆ ไม่ได้กรอก/ไม่ได้แก้ = ไม่มีอะไรหาย ไม่ต้องถาม (7 พ.ย.)
+   ✏️ แถวไม่หาย ที่แก้อยู่ใน DIRTY ส่งไปกับ 💾 อยู่แล้ว · ไม่ได้เลือกสาขา = ไม่มีแถวถูกซ่อน · ประวัติคนเดียวหลายวัน = ชื่อเดียว */
+function brHiddenOpen(){
+  var k=brKey(DATA), out={all:[],drafts:[],edits:[]};
+  if(!k) return out;
+  var put=function(i,list){
+    var r=DATA.rows[i]; if(!r || r.bk===k) return;
+    var n=r.name||r.id;
+    if(out.all.indexOf(n)<0) out.all.push(n);
+    if(list && list.indexOf(n)<0) list.push(n);
+  };
+  Object.keys(EDIT).forEach(function(i){ if(EDIT[i]) put(i); });
+  Object.keys(DRAFT).forEach(function(i){ if(DRAFT[i].length) put(i,DRAFT[i].some(draftFilled)?out.drafts:null); });
+  Object.keys(AEDIT).forEach(function(ek){ put(ek.split("|")[0],aeditChanged(ek)?out.edits:null); });
+  return out;
+}
+// + เบิก กรอกแล้วหรือยัง: ยอด/หมายเหตุ/รูป — เวลากับผู้จ่าย ปุ่ม + เติมให้เอง ไม่นับ
+function draftFilled(d){ return !!(String(d.amt||"").trim() || String(d.note||"").trim() || d.photo); }
+// ✏️ รายการเบิก ต่างจากที่บันทึกไว้ไหม — เทียบแบบเดียวกับตอนเปิดฟอร์ม (advEditOpen) · รูปใหม่ = ต่าง · หารายการเดิมไม่เจอ = ถือว่าต่าง ถามไว้ก่อน
+function aeditChanged(ek){
+  var p=ek.split("|"), e=AEDIT[ek], r=DATA.rows[p[0]], a=r&&r.advs&&r.advs[p[1]];
+  if(!a) return true;
+  var s=function(v){ return String(v==null?"":v).trim(); };
+  return !!e.photo || parseFloat(s(e.amt).replace(/,/g,""))!==+a.amt || s(e.time)!==s(a.time) || s(e.payer)!==s(a.payer) ||
+         s(e.note)!==(a.note==="ยอดเดิมในชีต"?"":s(a.note));
+}
+// ข้อความบอกฟอร์มเบิกที่ซ่อนอยู่ ("" = ไม่มีอะไรจะหาย) ใช้ร่วมกันทุกกล่องถาม · closing = ปิดยอด ฟอร์มยังเปิดค้างอยู่ ไม่ได้หายทันที
+function brLostText(closing){
+  var o=brHiddenOpen(), t="";
+  if(o.drafts.length) t+="⚠️ มีรายการเบิกที่ยังไม่บันทึกของ "+o.drafts.join(", ")+(closing?"":" — จะหายไป ไม่ถูกบันทึก")+"\n";
+  if(o.edits.length) t+="⚠️ ที่แก้รายการเบิกของ "+o.edits.join(", ")+(closing?" ยังไม่บันทึก":" จะไม่ถูกบันทึก")+" — ยอดเดิมยังอยู่\n";
+  return t ? t+"(ไม่อยู่บนจอนี้ เพราะกำลังดู "+brName(BRANCH)+")" : "";
+}
+// แถบเทียบ: เห็นครบทุกสาขาโดยไม่ต้องสลับ · ไม่ออกใบพิมพ์ (หัวกระดาษบอกสาขา+จำนวนคนแล้ว)
+function brStrip(d,range){
+  var B=d.byBranch; if(!B) return '';
+  var k=brKey(d), names=[], open=brHiddenOpen().all;
+  var box=function(key,name,s){
+    return '<div data-br="'+key+'" role="button" tabindex="0" aria-pressed="'+(key===k)+'" title="กดเพื่อดู'+name+'"'+(key===k?' class="on"':'')+'><b>'+name+'</b><span>มาทำงาน <i>'+s.people+'</i> คน</span><small>'+
+      (range?s.work+' วันทำงาน · ':'')+'ขาด '+s.absent+' · สาย '+s.late+' · ลา/พัก '+s.leave+'</small></div>';
+  };
+  d.rows.forEach(function(r){ if(r.bk==="none" && names.indexOf(r.name||r.id)<0) names.push(r.name||r.id); });
+  return '<div class="brs noprint" id="brHead">'+
+    box("",brName(""),d.summary)+box("2",brName("2"),B["2"].summary)+box("4",brName("4"),B["4"].summary)+
+    (names.length||k==="none"?box("none",brName("none"),B.none.summary):'')+'</div>'+
+    (names.length?'<div class="msg noprint" style="padding:0 8px 9px;font-size:12px;text-align:left">ไม่แยกสาขา = ช่องสาขาลงไว้ 2+4 / สาขาอื่น / ไม่ได้ลง — นับในรวมสองสาขาอย่างเดียว ไม่นับซ้ำ: '+
+      esc(names.slice(0,8).join(", "))+(names.length>8?" และอีก "+(names.length-8)+" คน":"")+'</div>':'')+
+    (open.length?'<div class="note warn noprint" id="brHidden">⚠️ ยังเปิดแก้ไข/เบิกค้างอยู่ แต่ไม่อยู่บนจอนี้ (กำลังดู '+brName(k)+'): '+esc(open.join(", "))+
+      ' — กดกล่อง '+brName("")+' เพื่อทำต่อหรือปิด · ระหว่างที่เปิดค้าง ข้อมูลใหม่อาจยังไม่ขึ้นจอ</div>':'');
+}
+
 function guard(fn){
-  if(Object.keys(DIRTY).length && !confirm("ยังมีที่แก้ไม่ได้บันทึก จะทิ้งไปไหม?")) return;
+  if(!leaveOk()) return;
   DIRTY={}; resetUi(); refresh(); fn();
+}
+// ออกจากหน้านี้/โหลดใหม่ = ที่แก้ค้าง + ฟอร์มเบิกหายหมด · ฟอร์มที่ตัวกรองสาขาซ่อนอยู่เดิมหายเงียบ เงินเบิกไม่ถูกบันทึก (7 พ.ย.) → ถามกล่องเดียวรวมทุกอย่าง กดยกเลิก = ไม่มีอะไรเปลี่ยน
+function leaveOk(){
+  var dirty=Object.keys(DIRTY).length, lost=brLostText();
+  if(!dirty && !lost) return true;
+  return confirm(lost ? (dirty?"ยังมีที่แก้ไม่ได้บันทึก\n":"")+lost+"\n\nจะทิ้งไปไหม?" : "ยังมีที่แก้ไม่ได้บันทึก จะทิ้งไปไหม?");
 }
 
 // ═══ โหลด ═══
@@ -544,6 +673,9 @@ function loadDay(){
 function openMulti(){
   var list=BOOT.employees.map(function(e){
     return '<label><input type="checkbox" class="pk" value="'+esc(e.id)+'" checked>'+
+           esc(e.id)+' — '+esc(e.name)+'</label>';}).join("")+
+    (BOOT.special||[]).map(function(e){   // ⭐ คนพิเศษ: เลือกเองได้ (ไม่ติ๊กไว้ก่อน — ค่าแรงเจ้าของคิดแยก)
+    return '<label><input type="checkbox" class="pk" data-sp="1" value="'+esc(e.id)+'">⭐ '+
            esc(e.id)+' — '+esc(e.name)+'</label>';}).join("");
   el("body").innerHTML=
     '<div class="pick noprint"><b style="font-size:14px">🖨️ เลือกคนที่จะพิมพ์</b>'+
@@ -570,10 +702,15 @@ function openMulti(){
   el("pkNone").onclick=function(){ boxes.forEach(function(b){b.checked=false;}); count(); };
   el("pkBack").onclick=function(){ setTab("person"); };
   el("pkGo").onclick  =function(){
-    var ids=boxes.filter(function(b){return b.checked;}).map(function(b){return b.value;});
-    el("sheets").innerHTML='<div class="msg">⏳ กำลังดึงข้อมูล '+ids.length+' คน...</div>';
-    call("time.getPeople",{ids:ids,from:el("pFrom").value,to:el("pTo").value})
-      .then(renderSheets).catch(function(e){
+    var on=boxes.filter(function(b){return b.checked;});
+    var ids=on.filter(function(b){return !b.dataset.sp;}).map(function(b){return b.value;});
+    var sp =on.filter(function(b){return  b.dataset.sp;}).map(function(b){return b.value;});
+    el("sheets").innerHTML='<div class="msg">⏳ กำลังดึงข้อมูล '+on.length+' คน...</div>';
+    // คนงาน / ⭐ คนพิเศษ แยกกลุ่มกันที่เซิร์ฟเวอร์ (ยอดไม่ปนกัน) → ขอทีละกลุ่มแล้วต่อใบกัน
+    var get=function(list,scope){ return list.length ? call("time.getPeople",{ids:list,from:el("pFrom").value,to:el("pTo").value,scope:scope}) : Promise.resolve({people:[]}); };
+    Promise.all([get(ids,""),get(sp,"special")])
+      .then(function(r){ renderSheets({from:r[0].from||r[1].from,to:r[0].to||r[1].to,people:r[0].people.concat(r[1].people)}); })
+      .catch(function(e){
         el("sheets").innerHTML='<div class="note err">❌ '+esc(e.message)+'</div>'; });
   };
   count();
@@ -629,25 +766,27 @@ function loadMonth(){
 // ═══ วาดหน้ารายเดือน — ตารางเดียว แสดงทุกวัน ═══
 function renderMonth(d,keep){
   DATA=d; if(!keep){ DIRTY={}; resetUi(); } PAINT=function(){ renderMonth(DATA,true); }; refresh();
-  var s=d.summary;
+  var V=brPart(d), s=V.summary;
   var lbl=function(ym){var p=ym.split("-");return MONTHS[+p[1]-1]+" "+(+p[0]+543);};
   var h='<div class="who"><div><b>📜 ประวัติการทำงาน</b>'+
-        '<small>'+d.days.length+' วัน · '+s.days+' แถว</small></div>'+
+        '<small>'+V.name+' · มาทำงาน '+s.people+' คน · '+V.dayCount+' วัน · '+s.days+' แถว</small></div>'+
         '<div style="text-align:right"><small>ช่วงวันที่</small><br><b style="font-size:14px">'+
         thDate(d.from)+' – '+thDate(d.to)+'</b></div></div>';
 
+  h+=brStrip(d,true);
+  // ช่วงหลายวัน: s.work = จำนวนวันรวมของทุกคน ไม่ใช่จำนวนคน — แยกการ์ดให้ชัด
   h+='<div class="grid">'+
-     c("🗓️ มาทำงาน",s.work)+c("❌ ขาด",s.absent)+c("🟡 สาย",s.late)+fineCard(s)+
+     c("👥 มาทำงาน",s.people+" คน")+c("🗓️ รวมวันทำงาน",s.work+" วัน")+c("❌ ขาด",s.absent)+c("🟡 สาย",s.late)+fineCard(s)+
      c("🏠 ลา/พัก",s.leave)+c("⏱️ ชม.รวม",s.hrs)+
      c("💰 ค่าแรงรวม",money(s.pay),"ok")+c("🎁 ทิป",money(s.tip))+
      c("📒 เบิกรวม",money(s.adv),"hi")+'</div>';
 
   // แยกยอดรายเดือน
-  if(d.byMonth.length>1){
+  if(V.byMonth.length>1){
     h+='<div class="scroll" style="margin-bottom:11px"><table style="min-width:520px">'+
        '<thead><tr><th style="min-width:120px">เดือน</th><th>แถว</th><th>มา</th><th>ขาด</th>'+
        '<th>สาย</th><th>ชม.</th><th>💰 ค่าแรง</th><th>📒 เบิก</th></tr></thead><tbody>';
-    d.byMonth.forEach(function(m){
+    V.byMonth.forEach(function(m){
       h+='<tr><td class="pad" style="text-align:left;padding-left:9px;font-weight:700">'+lbl(m.ym)+'</td>'+
          '<td class="pad ro">'+m.n+'</td><td class="pad ro">'+m.summary.work+'</td>'+
          '<td class="pad ro">'+m.summary.absent+'</td><td class="pad ro">'+m.summary.late+'</td>'+
@@ -662,7 +801,7 @@ function renderMonth(d,keep){
   if(d.rows.some(function(r){return r.timeLocked;}))
     h+='<div class="note warn noprint">⏳ แถวที่มีขีดเหลืองซ้ายมือ = ยังไม่ปิดยอด แก้ได้แค่สถานะ</div>';
 
-  h+=table(allIdx(),"both");
+  h+=table(brIdx(),"both");
   el("body").innerHTML=h;
   if(MODE==="edit") bind();
 }
@@ -706,10 +845,11 @@ function renderPerson(d,keep){
 function renderDay(d,keep){
   DATA=d; if(!keep){ DIRTY={}; resetUi(); } PAINT=function(){ renderDay(DATA,true); }; refresh();
   if(!d.found){ el("body").innerHTML='<div class="msg">⚠️ ไม่มีข้อมูลวันที่ '+esc(thDate(d.date))+'</div>'; return; }
-  var s=d.summary;
-  var h='<div class="who"><div><b>📅 '+thLong(d.date)+'</b></div>'+closeWidget(d)+'</div>';
+  var V=brPart(d), s=V.summary;
+  var h='<div class="who"><div><b>📅 '+thLong(d.date)+'</b><small>'+V.name+' · มาทำงาน '+s.people+' คน</small></div>'+closeWidget(d)+'</div>';
   if(d.closeReq && d.closeReq.state==="ไม่สำเร็จ")
     h+='<div class="note err noprint">ปิดยอดไม่สำเร็จ: '+esc(d.closeReq.note||"")+' — ลองกดใหม่ หรือปิดจากเมนูในชีต</div>';
+  h+=brStrip(d,false);
   h+='<div class="grid">'+
      c("👥 พนักงาน",s.days+" คน")+c("🗓️ มาทำงาน",s.work+" คน")+
      c("❌ ขาด",s.absent+" คน")+c("🟡 สาย",s.late+" ครั้ง")+fineCard(s)+
@@ -718,7 +858,7 @@ function renderDay(d,keep){
   if(d.per && !(BOOT && BOOT.hidePay))
     h+='<div class="msg noprint" style="padding:4px 8px 8px;font-size:12px;text-align:left">💰 ค่าแรงรวม · 📒 เบิกรวม · คงเหลือ ในตาราง = ของงวด '+
        esc(thDate(d.per.from))+' – '+esc(thDate(d.per.to))+' (รวมทิป ไม่รวมหนี้ยกมา) · คงเหลือสีแดง = เบิกเกินค่าแรงที่ทำได้</div>';
-  h+=table(allIdx(),"id");
+  h+=table(brIdx(),"id");
   if(MODE==="edit") h+='<div class="msg noprint" style="padding:8px;font-size:12px">✏️ แก้เวลา/สถานะ/ค่าแรง · 📝 หมายเหตุของวัน · ➕ บันทึกเบิก (ถ่ายรูปได้)</div>';
   el("body").innerHTML=h;
   if(MODE==="edit") bind();
@@ -915,6 +1055,12 @@ function subRows(i,r,ncol,lead){
   (DRAFT[i]||[]).forEach(function(d,k){
     h+='<tr class="sub noprint">'+pre+'<td colspan="'+span+'">'+advForm(d,"dr",i+"|"+k,"advsave","advcancel",i,k,"")+'</td></tr>';
   });
+  if(EDIT[i] && MODE==="edit"){
+    var home=empOf(r.id);
+    h+='<tr class="sub noprint">'+pre+'<td colspan="'+span+'"><div class="bf">📍 ทำงานที่ไหน วันที่ '+esc(thDate(r.date))+
+       '<select data-i="'+i+'" data-f="branch">'+dayBrOpts(val(i,"branch")||"")+'</select>'+
+       '<small>'+(home&&home.branch?'สาขาประจำ '+esc(home.branch)+' · ':'')+'เปลี่ยนแล้วกด 💾 บันทึก</small></div></td></tr>';
+  }
   if(NOTEOPEN[i]){
     h+='<tr class="sub nt noprint">'+pre+'<td colspan="'+span+'"><div class="nf">'+
        '<input type="text" data-i="'+i+'" data-f="note" placeholder="หมายเหตุของวันนี้ (เช่น ช่วยงานนอก)" value="'+esc(val(i,"note")||"")+'">'+
@@ -922,6 +1068,118 @@ function subRows(i,r,ncol,lead){
   }
   return h;
 }
+
+/* 📍 ทำงานที่ไหน ของวันนั้น (8 พ.ย. 2569) — ช่องสาขาของแถว (time.saveRows ช่อง branch) · แถบสาขานับจากช่องนี้ก่อน (branchKey_)
+   ตัวเลือก = แบบเดียวกับดร็อปดาวน์ในชีต + ชื่อที่มีในข้อมูลจริง · ค่าที่ลงไว้แปลก ๆ/ว่าง ยังเห็นตามจริง ไม่โดนเปลี่ยนเอง */
+var DAY_BRANCHES=["สาขา 2","สาขา 4","สาขา 2+4","สาขา 3"];
+function dayBrOpts(cur){
+  var L=DAY_BRANCHES.slice();
+  ((BOOT&&BOOT.branches)||[]).forEach(function(b){ if(b && L.indexOf(b)<0) L.push(b); });
+  if(L.indexOf(cur)<0) L.unshift(cur);
+  return L.map(function(b){
+    return '<option value="'+esc(b)+'"'+(b===cur?' selected':'')+'>'+(b?esc(b):'— ยังไม่ได้ลง —')+'</option>'; }).join('');
+}
+function empOf(id){
+  var all=((BOOT&&BOOT.employees)||[]).concat((BOOT&&BOOT.special)||[]);
+  for(var k=0;k<all.length;k++) if(String(all[k].id)===String(id)) return all[k];
+  return null;
+}
+
+/* ═══ 🏬 สาขาประจำของพนักงาน (8 พ.ย. 2569) — ผู้ใช้ถาม "เราสามารถเปลี่ยนสาขาพนักงานได้เลยไหม" ═══
+   หน้าต่างลอยทับหน้าเดิม: กดสาขา = time.setHomeBranch เขียนชีตรายชื่อพนักงานช่อง L ทันที (เจ้าของเท่านั้น)
+   หน้าต่างลอย = โปรแกรมร้านได้ชีตใหม่แล้ววาดหน้าข้างใต้ใหม่ได้ หน้าต่างไม่หาย · ปิดแล้วโหลดหน้าเดิมใหม่ (แถบสาขาคิดที่เซิร์ฟเวอร์) */
+var HOME_BRANCHES=["สาขา 2","สาขา 4","สาขา 2+4"], HB=null;
+/* HB.list = รายชื่อล่าสุดจากชีต (โหลดทุกครั้งที่เปิด — หน้าเปิดค้างหลายวัน/แก้จากเครื่องอื่น BOOT จะเก่า · ผลตรวจ 8 พ.ย.)
+   null = กำลังโหลด · กดแล้วอัปเดต BOOT ตามด้วย (ข้อความ "สาขาประจำ …" ใต้แถวที่กด ✏️) */
+function hbFind(id){
+  var L=(HB&&HB.list)||[];
+  for(var k=0;k<L.length;k++) if(String(L[k].id)===String(id)) return L[k];
+  return null;
+}
+function hbSync(id,branch){ var e=empOf(id); if(e) e.branch=branch; }
+function hbRow(e){
+  var busy=HB.busy[e.id];
+  var extra=!e.branch?' · ยังไม่ได้ตั้ง':HOME_BRANCHES.indexOf(e.branch)<0?' · ตอนนี้ '+e.branch:'';
+  return '<div class="hbr" data-hb="'+esc(e.id)+'"><span class="nm">'+(e.sp?'⭐ ':'')+esc(e.name)+
+    '<small>#'+esc(e.id)+esc(extra)+'</small></span><span class="caps">'+
+    HOME_BRANCHES.map(function(b){
+      return '<button type="button" data-hbset="'+esc(b)+'"'+(b===e.branch?' class="on" aria-pressed="true"':' aria-pressed="false"')+
+             (busy?' disabled':'')+'>'+esc(b)+'</button>'; }).join('')+
+    '</span><span class="hbmsg">'+(busy?'⏳ กำลังบันทึก':HB.done[e.id]?'✅ บันทึกแล้ว':'')+'</span></div>';
+}
+function hbDraw(){
+  var box=el("hbRows"); if(!box || !HB) return;
+  box.innerHTML=HB.list===null ? '<div class="msg">⏳ กำลังโหลดรายชื่อล่าสุด...</div>'
+               : HB.list.length ? HB.list.map(hbRow).join('') : '<div class="msg">ไม่มีรายชื่อพนักงาน</div>';
+}
+function hbPaint(id){
+  var e=hbFind(id);
+  Array.prototype.forEach.call(document.querySelectorAll("#hbBox [data-hb]"),function(n){
+    if(e && n.getAttribute("data-hb")===String(id)) n.outerHTML=hbRow(e);
+  });
+}
+function hbKey(e){ if(e.key==="Escape") closeHomeBr(); }
+function openHomeBr(redraw){
+  if(el("hbBox")) return;
+  HB={busy:{},done:{},changed:false,redraw:!!redraw,list:null};
+  var mine=HB, box=document.createElement("div");
+  box.className="ov noprint"; box.id="hbBox";
+  box.innerHTML='<div class="ovc" role="dialog" aria-label="สาขาประจำของพนักงาน">'+
+    '<div class="ovh"><b>🏬 สาขาประจำของพนักงาน</b><span class="spacer"></span>'+
+    '<button type="button" class="gh sm" data-hbclose="1">✕ ปิด</button></div>'+
+    '<div class="ovn">กดสาขา = บันทึกลงชีตรายชื่อพนักงานทันที · วันใหม่เริ่มที่สาขาประจำ<br>'+
+    'วันที่ลงสาขาเดียวไว้แล้ว (รวมวันนี้) ไม่ย้าย · วันที่ลง 2+4 หรือยังว่าง (รวมวันเก่า) นับตามสาขาประจำใหม่<br>'+
+    'ย้ายเฉพาะวัน (เช่น วันนี้ไปช่วยอีกสาขา) → ปิดหน้าต่างนี้ กด ✏️ ที่แถวคนนั้น แล้วเลือก 📍 ทำงานที่ไหน</div>'+
+    '<div id="hbRows"></div></div>';
+  // ปิดได้แค่ ✕ / Esc — กดพื้นหลังไม่ปิด (ดับเบิลคลิกปุ่มเปิด = คลิกที่สองตกพื้นหลัง หน้าต่างแวบหาย · ผลตรวจ 8 พ.ย.)
+  box.onclick=function(ev){
+    var t=ev.target;
+    if(t.closest && t.closest("[data-hbclose]")){ closeHomeBr(); return; }
+    var b=t.closest ? t.closest("[data-hbset]") : null;
+    if(!b || b.disabled) return;
+    hbSet(b.closest("[data-hb]").getAttribute("data-hb"), b.getAttribute("data-hbset"));
+  };
+  document.body.appendChild(box);
+  document.addEventListener("keydown",hbKey);
+  hbDraw();
+  var mark=function(list,sp){ return (list||[]).map(function(e){ return {id:e.id,name:e.name,branch:e.branch,sp:sp}; }); };
+  call("time.bootstrap",{}).then(function(b){
+    if(HB!==mine) return;
+    HB.list=mark(b.employees,false).concat(mark(b.special,true));
+    HB.list.forEach(function(e){ hbSync(e.id,e.branch); });
+  }).catch(function(err){
+    if(HB!==mine) return;
+    HB.list=mark(BOOT&&BOOT.employees,false).concat(mark(BOOT&&BOOT.special,true));
+    toast("⚠️ โหลดรายชื่อล่าสุดไม่ได้ — ใช้รายชื่อเดิมในหน้านี้ ("+err.message+")",6000);
+  }).then(function(){ if(HB===mine) hbDraw(); });
+}
+// กดสาขาที่เลือกอยู่แล้วก็ส่ง — เซิร์ฟเวอร์อ่านชีตอีกรอบ เท่าเดิม = ไม่เขียน (changed:false) แต่หน้านี้ได้ค่าจริงกลับมา
+function hbSet(id,to){
+  var e=hbFind(id);
+  if(!e || !HB || HB.busy[id]) return;
+  var mine=HB;
+  HB.busy[id]=1; delete HB.done[id]; hbPaint(id);
+  call("time.setHomeBranch",{id:id,branch:to,reqId:uuid()})
+    .then(function(r){ e.branch=r.branch; hbSync(id,r.branch); mine.done[id]=1; if(r.changed) mine.changed=true; })
+    .catch(function(err){ toast("❌ "+err.message,6000); })
+    .then(function(){ delete mine.busy[id]; if(HB===mine) hbPaint(id); });
+}
+function closeHomeBr(){
+  if(!HB) return;
+  if(Object.keys(HB.busy).length){ toast("⏳ รอบันทึกให้เสร็จก่อน",2500); return; }
+  var box=el("hbBox"); if(box) box.parentNode.removeChild(box);
+  document.removeEventListener("keydown",hbKey);
+  var again=HB.changed||HB.redraw; HB=null;
+  if(again) setTab(VIEW);   // แถบสาขา/แถวที่ช่องทำงานที่ไหนว่าง/2+4 คิดใหม่ที่เซิร์ฟเวอร์ · ฟอร์มที่ปิดไปตอนเปิดหน้าต่าง = วาดใหม่ให้ตรง
+}
+// เปิด: มีที่แก้ค้าง/ฟอร์มเปิดอยู่ = ถามแบบเปลี่ยนแท็บ (หน้าเดิมโหลดใหม่ตอนปิดหน้าต่าง)
+el("hbOpen").onclick=function(){
+  var open=function(o){ return Object.keys(o||{}).some(function(k){ var v=o[k]; return Array.isArray(v)?v.length>0:!!v; }); };
+  var had=open(DIRTY)||open(EDIT)||open(DRAFT)||open(AEDIT)||open(NOTEOPEN);
+  if(!had){ openHomeBr(false); return; }
+  guard(function(){ openHomeBr(true); });
+};
+if(MODE!=="edit") el("hbOpen").style.display="none";
 
 // ช่องกรอกเบิก — ใช้ทั้งเพิ่มใหม่ (+) และแก้รายการเดิม (✏️)
 //   kind "dr" = DRAFT[i][k] · "ae" = AEDIT["i|k"]   · oldPhoto = รูปเดิมของรายการที่แก้
@@ -1044,10 +1302,21 @@ function shrinkPhoto(file){
 
 function recalcAdv(){
   if(!DATA||!DATA.summary) return;
-  var s=DATA.summary;
-  s.adv=Math.round(DATA.rows.reduce(function(a,r){return a+(parseFloat(r.adv)||0);},0)*100)/100;
-  s.owe=Math.round((s.adv+(s.debt||0))*100)/100;
-  if(s.net!==null && s.net!==undefined) s.net=Math.round(((s.pay||0)+(s.tip||0)-s.owe)*100)/100;
+  var fix=function(s,rows){
+    s.adv=Math.round(rows.reduce(function(a,r){return a+(parseFloat(r.adv)||0);},0)*100)/100;
+    s.owe=Math.round((s.adv+(s.debt||0))*100)/100;
+    if(s.net!==null && s.net!==undefined) s.net=Math.round(((s.pay||0)+(s.tip||0)-s.owe)*100)/100;
+  };
+  // ตารางแยกเดือนในแท็บประวัติอ่านจาก byMonth — เดิมไม่ขยับ ผลรวมรายเดือนเลยไม่เท่าการ์ด 📒 จนกว่าจะโหลดใหม่ (4 พ.ย.)
+  var fixM=function(list,rows){
+    (list||[]).forEach(function(m){ fix(m.summary,rows.filter(function(r){return String(r.date).slice(0,7)===m.ym;})); });
+  };
+  fix(DATA.summary,DATA.rows); fixM(DATA.byMonth,DATA.rows);
+  // ยอดแยกสาขาขยับด้วย — ไม่งั้นเบิกตอนเลือกสาขาอยู่ การ์ด 📒 ไม่เปลี่ยนจนกว่าจะโหลดใหม่
+  Object.keys(DATA.byBranch||{}).forEach(function(k){
+    var list=DATA.rows.filter(function(r){return r.bk===k;});
+    fix(DATA.byBranch[k].summary,list); fixM(DATA.byBranch[k].byMonth,list);
+  });
 }
 
 // เบิกเกินค่าแรงงวดนี้ = ถามก่อน (ตั้งใจให้เบิกล่วงหน้าก็กดบันทึกต่อได้) · ไม่มียอดงวด (หน้าอื่น/ลูกน้อง) = ไม่ถาม
@@ -1140,16 +1409,50 @@ function closeWidget(d){
 }
 function closeDay(){
   if(Object.keys(DIRTY).length){ toast("กด 💾 บันทึกที่แก้ไว้ก่อน แล้วค่อยปิดยอด",5000); return; }
-  if(!confirm("ปิดยอด"+thLong(DATA.date)+"?\n\n• คนที่สแกนเข้าแต่ยังไม่สแกนออก จะนับเป็น \"ลืมสแกนออก\" (ได้ครึ่งวัน)\n"+
-              "• หลังปิด เวลาจะไม่เปลี่ยนตามการสแกนอีก (ยังแก้ได้ด้วยปุ่ม ✏️)")) return;
-  call("time.closeDay",{date:DATA.date})
+  // ปิดยอดปิดทั้งวันทุกคน — อีกกลุ่ม (คนงาน / ⭐ คนพิเศษ) ไม่อยู่บนจอนี้ → ดูก่อนว่าใครยังไม่ออก (เดิมคนจดยังไม่ลงเวลาเลิกงาน ปิดแล้วได้ครึ่งวัน · 3 พ.ย.)
+  if(closeDay.busy) return;
+  closeDay.busy=true;
+  var day=DATA.date, view=VIEW, other=VIEW==="special" ? "" : "special";
+  var look=(other==="" || (BOOT.special||[]).length) ? call("time.getDay",{date:day,scope:other}).catch(function(){ return null; }) : Promise.resolve(null);
+  // คนที่ตัวกรองสาขาซ่อน: DATA คือข้อมูลตอนเปิดหน้า หน้าเว็บไม่โหลดเอง สแกนออกไปแล้วยังถูกบอกว่ายังไม่ออก (7 พ.ย.) → ขอกลุ่มนี้ใหม่ตอนกด ใช้แค่ทำรายชื่อ ไม่แทน DATA ฟอร์มที่เปิดอยู่ไม่หาย
+  //   ขอไม่ได้ = ใช้ DATA · ไม่ได้เลือกสาขา = ไม่มีใครถูกซ่อน ไม่ต้องขอ
+  var mine=brKey(DATA) ? call("time.getDay",{date:day,scope:VIEW==="special"?"special":""}).catch(function(){ return null; }) : Promise.resolve(null);
+  Promise.all([look,mine]).then(function(got){   // เวลาที่ยังไม่มี = "--:--"
+    var d=got[0], fresh=got[1];
+    var notOut=function(r){ return r.in && r.in!=="--:--" && (!r.out || r.out==="--:--"); }, nameOf=function(r){ return r.name||r.id; };
+    var open=d && d.found ? (d.rows||[]).filter(notOut).map(nameOf) : [];
+    closeDay.busy=false;
+    if(!DATA || DATA.date!==day || VIEW!==view || Object.keys(DIRTY).length){ toast("หน้าจอเปลี่ยนระหว่างรอ — กด 🔒 ปิดยอดอีกครั้ง",5000); return; }
+    // ตัวกรองสาขาซ่อนคนกลุ่มเดียวกันด้วย — ยังทำงานอยู่แต่มองไม่เห็นบนจอ ปิดแล้วได้ครึ่งวันเงียบ ๆ ต้องบอกชื่อ (4 พ.ย.) · อ่านหลังเช็คด้านบน ระหว่างรอ DATA เปลี่ยนได้
+    var bk=brKey(DATA), hid=bk ? (fresh&&fresh.found?fresh:DATA).rows.filter(function(r){ return r.bk!==bk && notOut(r); }).map(nameOf) : [];
+    var warn=(open.length ? "\n\n⚠️ "+(other==="special" ? "⭐ คนพิเศษ" : "คนงาน")+"ที่ยังไม่ออก (ไม่อยู่บนจอนี้): "+open.join(", ") : "")+
+             (hid.length ? "\n\n⚠️ คนที่ยังไม่ออก (ไม่อยู่บนจอนี้ เพราะกำลังดู "+brName(bk)+"): "+hid.join(", ") : "");
+    if(warn) warn+="\n   ปิดตอนนี้ = เป็น \"ลืมสแกนออก\" ด้วย — ถ้ายังไม่เลิกงาน รอให้ออกก่อน";
+    // ฟอร์มเบิกที่ซ่อนอยู่: ปิดยอดไม่ได้แตะ ฟอร์มยังเปิดค้าง แต่ปิดเสร็จแล้ว (1–5 นาที) แถวย้าย กดบันทึกจะขึ้น "ข้อมูลเปลี่ยน กดโหลดใหม่" → บอกให้ไปบันทึกก่อนปิด (7 พ.ย.)
+    var lost=brLostText(true);
+    if(lost) warn+="\n\n"+lost+"\n   ปิดยอดไม่ได้บันทึกให้ — กดยกเลิก แล้วกดกล่อง "+brName("")+" ไปบันทึกก่อน ค่อยปิดยอด";
+    if(!confirm("ปิดยอด"+thLong(day)+"?\n\n• คนที่สแกนเข้าแต่ยังไม่สแกนออก จะนับเป็น \"ลืมสแกนออก\" (ได้ครึ่งวัน)\n"+
+                "• หลังปิด เวลาจะไม่เปลี่ยนตามการสแกนอีก (ยังแก้ได้ด้วยปุ่ม ✏️)"+
+                (brKey(DATA)?"\n• ปิดทั้งวันทุกสาขา — ที่เลือก "+brName(BRANCH)+" อยู่เป็นแค่การดู":"")+warn)) return;
+    doCloseDay(day);
+  });
+}
+function doCloseDay(day){
+  call("time.closeDay",{date:day})
     .then(function(){ DATA.closeReq={state:"รอ"}; PAINT();
       toast("ส่งคำขอปิดยอดแล้ว — ระบบจะปิดให้ภายใน 1–5 นาที",5000);
-      setTimeout(function(){ if(VIEW==="day"||VIEW==="special") reloadView(); },90000); })
+      setTimeout(closeReload,90000); })
     .catch(function(e){ toast("❌ "+e.message,6000); });
 }
+// ครบเวลาหลังส่งคำขอปิดยอด = โหลดใหม่ให้เห็นผล — เจ้าของไม่ได้กดอะไร ห้ามเด้งถาม/ทิ้งของค้างเอง: มีของค้าง (ทั้งบนจอและที่ซ่อน) = ข้าม ป้าย ⏳ กับปุ่ม 🔄 โหลดใหม่ ยังอยู่ กดเองแล้วค่อยถาม (7 พ.ย.)
+function closeReload(){
+  if(VIEW!=="day" && VIEW!=="special") return;
+  if(Object.keys(DIRTY).length || Object.keys(AEDIT).some(aeditChanged) ||
+     Object.keys(DRAFT).some(function(i){ return DRAFT[i].some(draftFilled); })) return;
+  reloadView();
+}
 function reloadView(){
-  if(Object.keys(DIRTY).length && !confirm("ยังมีที่แก้ไม่ได้บันทึก จะทิ้งไปไหม?")) return;
+  if(!leaveOk()) return;
   VIEW==="person"?loadPerson():VIEW==="month"?loadMonth():VIEW==="special"?loadSpecial():loadDay();
 }
 
@@ -1165,6 +1468,9 @@ function refresh(){
 function save(){
   var ch=Object.keys(DIRTY).map(function(k){return DIRTY[k];});
   if(!ch.length) return;
+  // บันทึกแล้ววาดใหม่ = ฟอร์มเบิกที่เปิดค้างหายหมด · แถวบนจอยังเห็นตอนหาย แต่แถวที่ตัวกรองสาขาซ่อนอยู่หายเงียบ เงินเบิกไม่ถูกบันทึก (4 พ.ย.) → ถามก่อนส่ง กดยกเลิก = ไม่มีอะไรเปลี่ยน
+  var lost=brLostText();
+  if(lost && !confirm(lost+"\n\nกดตกลง = บันทึกที่แก้ไว้ ส่วนรายการเบิกข้างบนไม่ถูกบันทึก\nกดยกเลิก = ยังไม่บันทึก กลับไปจัดการรายการเบิกก่อน")) return;
   ["save","save2","save3","save4"].forEach(function(id){var b=el(id);if(b){b.disabled=true;b.textContent="⏳ บันทึก...";}});
   call("time.saveRows",{changes:ch,reqId:uuid(),reloadDay:VIEW==="day"})
     .then(function(res){
