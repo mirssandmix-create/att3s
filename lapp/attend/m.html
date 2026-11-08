@@ -66,6 +66,14 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 .brb.on{border-color:var(--ac);box-shadow:inset 0 0 0 1px var(--ac);background:var(--ac2)}
 .brb.on .brT{color:var(--acT)}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:12px 12px 10px;margin-bottom:10px;box-shadow:var(--sh)}
+:root{--doneBg:#f1f5f9;--doneBd:#cbd5e1;--doneBar:#64748b;--offBg:#eff6ff;--offBd:#bfdbfe;--offBar:#3b82f6}
+:root[data-theme=dark]{--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}}
+.card.done{background:var(--doneBg);border-color:var(--doneBd);box-shadow:inset 4px 0 0 var(--doneBar)}
+.card.off{background:var(--offBg);border-color:var(--offBd);box-shadow:inset 4px 0 0 var(--offBar)}
+.card.done .b.ed,.card.off .b.ed{background:var(--card)}
+.tag{flex:none;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;align-self:center}
+.tag.done{background:var(--doneBar);color:#fff}
 .ch{display:flex;align-items:flex-start;gap:8px}
 .nm{flex:1;font-size:1.08rem;font-weight:700;line-height:1.35}
 .nm .id{font-size:.78rem;color:var(--mu);font-weight:500;margin-left:4px}
@@ -447,9 +455,10 @@ function fineTags(f) {
   return (f.late ? '<span class="fine">⏰ สาย −' + f.late + "</span>" : "") + (f.early ? '<span class="fine">🏃 เลิกก่อน −' + f.early + "</span>" : "");
 }
 function card(r, i) {
-  var advs = r.advs || [], h = '<div class="card" data-i="' + i + '">';
+  var off = SPECIAL.indexOf(r.status) >= 0, done = !off && !noT(r.out);
+  var advs = r.advs || [], h = '<div class="card' + (off ? " off" : done ? " done" : "") + '" data-i="' + i + '">';
   h += '<div class="ch"><div class="nm" data-act="person">' + esc(r.name) + '<span class="id">#' + esc(r.id) + '</span><span class="go"> ›</span></div>'
-    + '<span class="st ' + stCls(r.status) + '">' + esc(r.status || "—") + "</span></div>";
+    + (done ? '<span class="tag done">🏁 เลิกงาน</span>' : "") + '<span class="st ' + stCls(r.status) + '">' + esc(r.status || "—") + "</span></div>";
   h += '<div class="tm"><span>เข้า <b' + (r.fine && r.fine.late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + '</b></span><span>ออก <b' + (r.fine && r.fine.early ? ' class="fl"' : "") + ">"
     + esc(r.out || "--:--") + "</b></span>" + (r.hrs ? "<span>" + r.hrs + " ชม.</span>" : "") + (r.branch ? "<span>📍 " + esc(r.branch) + "</span>" : "") + "</div>";
   var mo = (r.pay ? '<span class="pay">ค่าแรง ' + baht(r.pay) + "</span>" : "") + (r.tip ? '<span class="pay">ทิป ' + baht(r.tip) + "</span>" : "")
