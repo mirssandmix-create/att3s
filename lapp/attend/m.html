@@ -44,16 +44,7 @@ button,[data-act]{cursor:pointer}   /* iPhone ส่งการแตะให�
 .day input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
 .r3{display:flex;gap:8px;margin-top:8px}
 .srch{flex:1;height:42px;border-radius:999px;border:1px solid var(--bd);background:var(--card);padding:0 16px;outline:none}
-.flt{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
-.flt::-webkit-scrollbar{display:none}
-.pill{flex:none;border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:6px 14px;font-size:.88rem;font-weight:600;color:var(--mu)}
-.pill.on{background:var(--ac);border-color:var(--ac);color:#fff}
 main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (กรองสาขา) = จอไม่เด้งขึ้นเอง */
-.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-.sum div{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:8px 10px;box-shadow:var(--sh)}
-.sum b{display:block;font-size:1.05rem;font-weight:700}
-.sum span{font-size:.75rem;color:var(--mu);font-weight:500}
-.sum .p b{color:var(--pay)} .sum .a b{color:var(--adv)}
 /* กล่องเลือกสาขา (แบบหน้าเวลาทำงานในคอม/เว็บ 8 พ.ย.) · ห้ามกระตุก: 4 ช่องคงที่ (ไม่มี "ไม่แยกสาขา" = ช่องว่าง ไม่ขยายกล่องอื่น)
    เลือกแล้วกรอบเข้มแบบเงาใน (ขนาดไม่เปลี่ยน) · ขนาดตัวหนังสือในกล่องไม่โตตามตัวหนังสือใหญ่ + บรรทัดล่างสูงตายตัว 2 บรรทัด = สูงเท่ากันทุกวัน */
 .brs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:1px;font-size:min(1rem,15px)}
@@ -233,8 +224,6 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 /* หน้าสรุปเบิก (13 พ.ย.) — แตะกล่อง "เบิกวันนี้" ในหน้าวัน · ใช้หัว/สรุปแบบหน้าคน · แตะคน = หน้าคน (ซ้อนบน) */
 #advp{position:fixed;inset:0;z-index:25;background:var(--bg);overflow-y:auto;display:none;padding-bottom:40px}
 #advp.on{display:block}
-.sum .a{cursor:pointer}
-.sum .a span:after{content:" ›"}
 .apay{margin-top:8px;font-size:.82rem;color:var(--mu);font-weight:500;line-height:1.6}
 .apay b{color:var(--tx);font-weight:700}
 .msg{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;margin:0 0 10px;border:0;border-radius:14px;background:#0866ff;color:#fff;font-weight:700;font-size:.98rem}
@@ -280,7 +269,6 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
     <button class="ib" data-act="next" id="nextBtn" aria-label="วันถัดไป">›</button>
   </div>
   <div class="r3"><input class="srch" id="q" type="search" placeholder="🔍 ค้นหาชื่อ / รหัส" autocomplete="off"></div>
-  <div class="flt" id="flt"></div>
 </div>
 <div id="bn"></div>
 <main id="main"><div class="load"><b>กำลังเตรียมข้อมูล…</b>เปิดครั้งแรกต้องดึงข้อมูลจากเว็บก่อน (ประมาณ 10–30 วินาที)</div></main>
@@ -298,7 +286,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 "use strict";
 /* ═══ ข้อมูล ═══ */
 var ADVP = false;   // เปิดหน้าสรุปเบิกอยู่ (หน้าวันวาดใหม่ = หน้าสรุปวาดตาม)
-var BOOT = null, CUR = "", DAY = null, FILTER = "all", QTXT = "", NAMES = {}, PER = null, FORM = null, BUSY = false, NEED_REDRAW = false;
+var BOOT = null, CUR = "", DAY = null, QTXT = "", NAMES = {}, PER = null, FORM = null, BUSY = false, NEED_REDRAW = false;
 /* สาขาที่ดู: all = รวมสองสาขา · "2" / "4" · none = ไม่แยกสาขา (ตัวคิด engine ใส่ r.bk + ยอดแยกสาขา byBranch ให้ หน้าจอแค่เลือกชุดมาโชว์ ห้ามคิดเงินเอง)
    จำแค่ตอนเปิดแอพอยู่ (เปิดใหม่ = รวมสองสาขา) · ใช้ทุกวันที่ดู */
 var BR = "all", BRS = [["all", "รวมสองสาขา"], ["2", "สาขา 2"], ["4", "สาขา 4"], ["none", "ไม่แยกสาขา"]];
@@ -409,11 +397,6 @@ function refresh() {
 }
 
 /* ═══ หน้าวัน ═══ */
-function catOf(r) {
-  if (SPECIAL.indexOf(r.status) >= 0) return "lv";
-  if (!noT(r.in)) return "came";
-  return "not";
-}
 function stCls(s) {
   s = String(s || "");
   if (SPECIAL.indexOf(s) >= 0) return "lv";
@@ -428,25 +411,19 @@ function render() {
   $("dayTx").innerHTML = esc(thDate(CUR, true)) + (CUR === today ? "<small>วันนี้</small>" : "");
   $("dayPick").value = CUR;
   $("nextBtn").style.visibility = CUR >= today ? "hidden" : "";
-  var bb = d.byBranch || null, k = viewKey(d);
-  var all = d.rows || [], rows = all.filter(function (r) { return inBr(r, k); }), c = { all: rows.length, came: 0, not: 0, lv: 0 };
-  rows.forEach(function (r) { c[catOf(r)]++; });
-  var F = [["all", "ทั้งหมด"], ["came", "มาแล้ว"], ["not", "ยังไม่มา"], ["lv", "ลา/หยุด"]];
-  $("flt").innerHTML = F.map(function (f) { return '<button class="pill' + (FILTER === f[0] ? " on" : "") + '" data-flt="' + f[0] + '">' + f[1] + " " + c[f[0]] + "</button>"; }).join("");
+  var k = viewKey(d);
+  var all = d.rows || [];
   if (!d.found) {
     $("main").innerHTML = '<div class="empty">' + (d.err ? "⚠ " + esc(d.err) : "ไม่มีข้อมูลเวลาทำงานของ" + esc(thDate(CUR, true))) + "</div>";
     if (ADVP) drawAdvp();
     return;
   }
-  var s = (k === "all" ? d.summary : bb[k].summary) || {}, q = QTXT.trim().toLowerCase(), h = "";
+  var q = QTXT.trim().toLowerCase(), h = "";
   if (d.fallbackFrom) h += '<div class="banner w" style="margin:0 0 10px">ยังไม่มีข้อมูลของ' + esc(thDate(d.fallbackFrom, true)) + " — แสดงวันล่าสุดในระบบ: <b>" + esc(thDate(d.date, true)) + "</b></div>";
   h += brStrip(d, k);
-  h += '<div class="sum"><div class="p"><b>' + baht(s.pay) + '</b><span>ค่าแรงวันนี้</span></div><div class="a" data-act="advsum"><b>' + baht(s.adv) + '</b><span>เบิกวันนี้</span></div>'
-    + '<div><b>' + (s.work || 0) + ' <small style="font-size:.75rem;color:var(--mu)">คน</small></b><span>มา' + (s.late ? " · สาย " + s.late : "") + '</span></div></div>';
   var shown = 0;
   all.forEach(function (r, i) {   // i = ลำดับใน DAY.rows (กดการ์ดหาแถวจากลำดับนี้) — กรองสาขาแล้วข้าม ไม่นับลำดับใหม่
     if (!inBr(r, k)) return;
-    if (FILTER !== "all" && catOf(r) !== FILTER) return;
     if (q && String(r.name).toLowerCase().indexOf(q) < 0 && String(r.id) !== q) return;
     shown++;
     h += card(r, i);
@@ -511,8 +488,6 @@ function card(r, i) {
 document.addEventListener("click", function (e) {
   var z = e.target.closest("[data-zoom]");
   if (z) { e.preventDefault(); e.stopPropagation(); zoom(z.getAttribute("data-zoom")); return; }
-  var f = e.target.closest("[data-flt]");
-  if (f) { FILTER = f.getAttribute("data-flt"); render(); return; }
   var br = e.target.closest("[data-br]");
   if (br) { BR = br.getAttribute("data-br"); render(); return; }
   var b = e.target.closest("[data-act]");
@@ -521,7 +496,6 @@ document.addEventListener("click", function (e) {
   if (cd) { var src = cd.getAttribute("data-src") === "p" ? (PER && PER.data && PER.data.rows) : (DAY && DAY.rows); r = src ? src[+cd.getAttribute("data-i")] : null; }
   if (act === "menu") return menu();
   if (!BOOT) return;
-  if (act === "advsum") return openAdvp();
   if (act === "prev") { CUR = addDays(CUR, -1); return loadDay(); }
   if (act === "next") { if (CUR < TODAY()) { CUR = addDays(CUR, 1); return loadDay(); } return; }
   if (!r) return;
@@ -1278,24 +1252,31 @@ window.appOpen = function (v) { if (v === "fail") showFails(true); };
 function theme() { var t = ls("attTheme") || "auto"; if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); }
 function bigText() { document.documentElement.style.setProperty("--fs", ls("attBig") === "1" ? "17px" : "15px"); if (PER) pthTop(); }
 theme(); bigText();
+var MORE_N = 0, MORE_T = 0;
 function menu() {
   var st = LAPP.state && LAPP.state() || {}, t = ls("attTheme") || "auto";
   var wup = false, wv = "";   // Android: หน้าแอพอัปเดตเอง (ตัวแอพรุ่นที่มี WebUpdate) · iPhone ไม่มี
   try { wup = typeof ShopAndroid.webCheck === "function"; wv = wup ? String(ShopAndroid.webVersion() || "") : ""; } catch (e) {}
-  var h = "<h3>เมนู</h3>"
-    + '<button class="mi" data-m="sync"><span>🔄</span><div>ดึงข้อมูลจากเว็บตอนนี้<small>' + (st.lastOk ? "ตรงกับเว็บล่าสุด " + esc(String(st.lastOk).replace("T", " ").slice(0, 16)) : "ยังไม่เคยดึงสำเร็จ") + "</small></div></button>"
-    + '<button class="mi" data-m="fail"><span>⚠</span><div>รายการส่งไม่ผ่าน<small>' + ((st.failed || []).length ? (st.failed.length + " รายการ — แตะเพื่อทำใหม่") : "ไม่มี") + "</small></div></button>"
-    + '<button class="mi" data-m="full"><span>🖥️</span><div>เปิดหน้าเต็มแบบในคอม<small>ประวัติหลายวัน · รายเดือน · ทุกอย่างแบบหน้าเว็บ</small></div></button>'
+  var nf = (st.failed || []).length;
+  var h = '<h3 data-m="more">เมนู</h3>'
+    + '<button class="mi" data-m="advsum"><span>💸</span><div>สรุปเบิกเงิน<small>' + esc(thShort(CUR)) + " — ใครเบิกบ้าง รวมเท่าไร</small></div></button>"
     + '<button class="mi" data-m="theme"><span>🌗</span><div>สีหน้าจอ<small>' + { auto: "ตามมือถือ", light: "สว่าง", dark: "มืด" }[t] + " — แตะเพื่อเปลี่ยน</small></div></button>"
+    + (nf ? '<button class="mi" data-m="fail"><span>⚠</span><div>รายการส่งไม่ผ่าน<small>' + nf + " รายการ — แตะเพื่อทำใหม่</small></div></button>" : "")
+    // 13 พ.ย. ผู้ใช้ให้เอาออก "เก็บไว้ลับๆ" — แตะคำว่า "เมนู" 5 ครั้งติด = โชว์
+    + '<div id="mMore" style="display:none">'
+    + '<button class="mi" data-m="sync"><span>🔄</span><div>ดึงข้อมูลจากเว็บตอนนี้<small>' + (st.lastOk ? "ตรงกับเว็บล่าสุด " + esc(String(st.lastOk).replace("T", " ").slice(0, 16)) : "ยังไม่เคยดึงสำเร็จ") + "</small></div></button>"
+    + '<button class="mi" data-m="full"><span>🖥️</span><div>เปิดหน้าเต็มแบบในคอม<small>ประวัติหลายวัน · รายเดือน · ทุกอย่างแบบหน้าเว็บ</small></div></button>'
     + '<button class="mi" data-m="big"><span>🔠</span><div>ตัวหนังสือ<small>' + (ls("attBig") === "1" ? "ใหญ่" : "ปกติ") + " — แตะเพื่อเปลี่ยน</small></div></button>"
     + '<button class="mi" data-m="link"><span>🔑</span><div>เปลี่ยนลิงก์ / รหัสเจ้าของ<small>ใช้เมื่อเปลี่ยนรหัสเจ้าของบนเว็บ</small></div></button>'
     + (wup ? '<button class="mi" data-m="wup"><span>⬇️</span><div>เช็คหน้าแอพรุ่นใหม่<small>ปกติแอพอัปเดตหน้าแอพเองตอนเปิดแอพ</small></div></button>' : "")
-    + '<div class="hint" style="text-align:center;margin-top:10px" id="ver"></div>';
+    + '<div class="hint" style="text-align:center;margin-top:10px" id="ver"></div></div>';
   openSheet(h);
   try { $("ver").textContent = "รุ่นแอพ " + JSON.parse(ShopAndroid.link()).version + (wv ? " · หน้าแอพ " + wv : "") + (LAPP.webBuild ? " · กติกาเว็บ " + LAPP.webBuild : ""); } catch (e) { $("ver").textContent = ""; }
   $("sheet").onclick = function (e) {
     var m = e.target.closest("[data-m]"); if (!m) return;
     var k = m.getAttribute("data-m");
+    if (k === "more") { MORE_N = Date.now() - MORE_T < 1500 ? MORE_N + 1 : 1; MORE_T = Date.now(); if (MORE_N >= 5) $("mMore").style.display = ""; return; }
+    if (k === "advsum") { closeSheet(); openAdvp(); return; }
     if (k === "sync") { closeSheet(); LAPP.sync().then(function () { toast("กำลังดึงข้อมูลจากเว็บ…"); }, function (x) { toast("❌ " + x.message, true); }); }
     if (k === "fail") { closeSheet(); showFails(true); }
     if (k === "full") { closeSheet(); location.href = "index.html"; }
