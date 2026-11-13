@@ -995,6 +995,56 @@ function openCardv(r, a) {
   $("cardv").onclick = function (e) { if (!e.target.closest("img,canvas,button")) closeCardv(); };
 }
 function closeCardv() { CV_N++; $("cardv").className = ""; $("cvBox").innerHTML = ""; }
+/* ใบสรุปเบิก (รูป) — ส่งเข้ากลุ่มแล้วอ่านง่ายกว่าข้อความยาว (13 พ.ย. ผู้ใช้บอกข้อความสรุป "ดูยาก")
+   ตาราง เวลา · ชื่อ · ยอด เรียงตามเวลา (แบบเดียวกับหน้าสรุป) + ยอดรวมตัวใหญ่ด้านบน */
+function advSumCard(x) {
+  var fl = Promise.resolve();
+  try { if (document.fonts && document.fonts.load) fl = Promise.all(["700 60px Prompt", "600 40px Prompt", "400 30px Prompt"].map(function (f) { return document.fonts.load(f, "กข฿1"); })).catch(function () {}); } catch (e) {}
+  return fl.then(function () {
+    var W = 1080, X = 88, CW = W - X * 2, F = function (w, z) { return w + " " + z + "px Prompt, 'Noto Sans Thai', sans-serif"; };
+    var c = document.createElement("canvas"), g = c.getContext("2d"), a = ymd(CUR);
+    c.width = W; c.height = 10;
+    function fit(t, font, w) {   // ตัดท้ายด้วย … ถ้ายาวเกินช่อง
+      g.font = font; t = String(t || "");
+      if (g.measureText(t).width <= w) return t;
+      while (t.length > 1 && g.measureText(t + "…").width > w) t = t.slice(0, -1);
+      return t + "…";
+    }
+    function lay(draw) {
+      var y = 96;
+      function t(s, font, col, tx, ty, al) { if (!draw) return; g.font = font; g.fillStyle = col; g.textAlign = al || "left"; g.fillText(s, tx, ty); }
+      t("💸 สรุปเบิกเงิน", F(700, 46), "#c2410c", X, y + 50);
+      t(thShort(CUR) + " " + (a.y + 543), F(600, 32), "#6b7280", X + CW, y + 48, "right");
+      y += 82; if (draw) { g.fillStyle = "#e5e7eb"; g.fillRect(X, y, CW, 2); } y += 30;
+      t("เบิกรวม", F(600, 32), "#6b7280", X, y + 34);
+      t(baht(x.total), F(700, 110), "#b91c1c", X, y + 150);
+      t(x.people.length + " คน · " + x.list.length + " ครั้ง", F(600, 38), "#111827", X + CW, y + 146, "right");
+      y += 186;
+      // หัวตาราง
+      if (draw) { rrect(g, X, y, CW, 64, 18); g.fillStyle = "#f3f4f6"; g.fill(); }
+      t("เวลา", F(600, 30), "#6b7280", X + 24, y + 43); t("ชื่อ", F(600, 30), "#6b7280", X + 170, y + 43); t("ยอด", F(600, 30), "#6b7280", X + CW - 24, y + 43, "right");
+      y += 64;
+      x.list.forEach(function (o, k) {
+        var q = o.a, meta = [q.payer ? "ผู้จ่าย " + q.payer : "", q.note].filter(Boolean).join(" · "), h = meta ? 108 : 80;
+        if (draw && k % 2 === 1) { g.fillStyle = "#fafafa"; g.fillRect(X, y, CW, h); }
+        t(q.time || "–", F(600, 34), "#6b7280", X + 24, y + 52);
+        t(fit(o.r.name, F(700, 40), CW - 170 - 230), F(700, 40), "#111827", X + 170, y + 52);
+        t(baht(q.amt), F(700, 42), "#b91c1c", X + CW - 24, y + 52, "right");
+        if (meta) t(fit(meta, F(400, 28), CW - 170 - 24), F(400, 28), "#6b7280", X + 170, y + 90);
+        y += h;
+        if (draw) { g.fillStyle = "#eef0f2"; g.fillRect(X, y - 2, CW, 2); }
+      });
+      return y + 40 + 40;
+    }
+    var H = lay(false);
+    c.height = H;
+    g.fillStyle = "#f4f5f7"; g.fillRect(0, 0, W, H);
+    rrect(g, 40, 40, W - 80, H - 80, 40); g.fillStyle = "#fff"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#e5e7eb"; g.stroke();
+    g.textBaseline = "alphabetic";
+    lay(true);
+    return c.toDataURL("image/jpeg", 0.9);
+  });
+}
 function dataFile(u, name) {
   var b = atob(u.split(",")[1]), n = b.length, a = new Uint8Array(n);
   while (n--) a[n] = b.charCodeAt(n);
@@ -1056,27 +1106,27 @@ function drawAdvp() {
   $("advp").innerHTML = h + "</main>";
   bindAdvp(x);
 }
+var SUMIMG = { sig: "", u: "" };
 function bindAdvp(x) {
   $("aBack").onclick = closeAdvp;
   $("aPrev").onclick = function () { CUR = addDays(CUR, -1); drawAdvp(); loadDay(); };
   $("aNext").onclick = function () { if (CUR < TODAY()) { CUR = addDays(CUR, 1); drawAdvp(); loadDay(); } };
-  if (x && $("aMsg")) $("aMsg").onclick = function () { shareMsg(advSumMsg(x)); };
+  if (x && $("aMsg")) {
+    var sig = CUR + "|" + x.list.map(function (o) { return o.r.id + ":" + o.a.amt + ":" + (o.a.time || "") + ":" + (o.a.payer || "") + ":" + (o.a.note || ""); }).join(",");
+    if (SUMIMG.sig !== sig) { SUMIMG = { sig: sig, u: "" }; var me = SUMIMG; advSumCard(x).then(function (u) { me.u = u; }, function () {}); }
+    $("aMsg").onclick = function () {
+      if (SUMIMG.sig === sig && !SUMIMG.u) { toast("⏳ กำลังทำรูปสรุป… แตะอีกครั้ง"); return; }
+      shareCard(SUMIMG.sig === sig ? SUMIMG.u : "", advSumMsg(x));
+    };
+  }
   $("advp").onclick = function (e) {
     var b = e.target.closest("[data-card]");
     if (b && x) { var o = x.list[+b.getAttribute("data-card")]; if (o) openCardv(o.r, o.a); }
   };
 }
 function advSumMsg(x) {
-  var L = ["💸 สรุปเบิกเงิน " + thShort(CUR), "รวม " + baht(x.total) + " · " + x.people.length + " คน · " + x.list.length + " ครั้ง", ""];
-  x.people.forEach(function (p, k) {
-    L.push((k + 1) + ". " + p.r.name + " " + baht(p.sum));
-    p.advs.forEach(function (a) {
-      var m = [a.time, a.payer ? "ผู้จ่าย " + a.payer : "", a.note].filter(Boolean).join(" · ");
-      if (p.advs.length > 1 || m) L.push("   - " + baht(a.amt) + (m ? " (" + m + ")" : ""));
-    });
-  });
-  var pk = Object.keys(x.payers);
-  if (pk.length) { L.push(""); L.push("🙋 ผู้จ่าย: " + pk.map(function (k) { return k + " " + baht(x.payers[k].amt); }).join(" · ")); }
+  var L = ["💸 สรุปเบิก " + thShort(CUR) + " " + (ymd(CUR).y + 543), "รวม " + baht(x.total) + " (" + x.people.length + " คน · " + x.list.length + " ครั้ง)", ""];
+  x.list.forEach(function (o) { L.push((o.a.time ? o.a.time + " " : "") + o.r.name + " " + baht(o.a.amt)); });
   return L.join("\n");
 }
 
