@@ -1,5 +1,5 @@
 /* แอพเวลาทำงาน: ตัวคิดเบื้องหลังไฟล์เดียว — สร้างด้วย tools/sync_attend.py จาก ShopPOS www/lapp (ห้ามแก้ตรง ๆ) */
-/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · cc3015b940 */
+/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · 77bd1e576b */
 self.LAPP_APP = {
   okResult: function (r) { return !(r && typeof r === "object" && r.ok === false); },   // api() ไม่สำเร็จ = ไม่ส่งขึ้นเว็บ
   relocate: function (fn, a) { if (fn === "api" && a) posRelocate_(a[0], a[1]); },   // แถวเลื่อน (ปิดยอดแล้ว) = หาแถวใหม่ก่อนคิดซ้ำ
@@ -473,7 +473,7 @@ onmessage = function (e) {
 
 ;
 /* ---- code.js ---- */
-/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · cc3015b940 */
+/* สร้างจาก PoomCode/ระบบคิดเงินเดือนลูกน้อง (รหัส.gs + 01_core.gs + 03_time.gs + 90_api.gs + 95_pos.gs) ด้วย tools/lapp-sync.py — ห้ามแก้ไฟล์นี้ตรง ๆ · 77bd1e576b */
 // ═══════════════════════════════════════════════════════════════════
 // 3S Sukcharoen Recycle — Web App  v1.0
 // ไฟล์ 00: ค่าตั้งต้นทั้งหมด  (แก้ที่นี่ที่เดียว)
@@ -522,7 +522,7 @@ var FULL_DAY_HRS  = 9;      // ทำครบกี่ชั่วโมง = �
 var HALF_DAY_PAY  = 400;    // รายเดือน ทำไม่ครบ → ได้เท่านี้
 var HOURLY_SHORT  = 50;     // รายวัน ทำไม่ครบ → ชม.ละเท่านี้
 var OT_START_HRS  = 9;      // เกินกี่ชั่วโมง = เริ่มนับ OT
-var OT_PER_30MIN  = 35;     // OT ทุก 30 นาที
+var OT_PER_30MIN  = 35;     // OT ทุก 30 นาที (ถึง 31 ต.ค. — ตั้งแต่ RULE_15_FROM ใช้ OT_PER_15MIN)
 var OT_ON_HOURLY  = false;
 
 var PAY_ON_ABSENT    = false;
@@ -534,6 +534,7 @@ var LATE_AFTER   = "08:05";  // เข้าหลังเวลานี้ = 
 // [1 พ.ย. 2569] เวลาต่างนิดเดียวแต่ค่าแรงหายเป็นก้อน (ชม.ไม่ถึง 9 = ค่าแรงไม่เต็มวัน) — ตั้งแต่ RULE_Q_FROM:
 //   เข้าไม่เกิน GRACE_IN = นับชั่วโมงตั้งแต่ 08:00 (สาย 08:06–08:10 หักแค่ค่าสาย ได้เต็มวัน) · หลัง GRACE_IN = นับตามเวลาจริง
 //   ออกตั้งแต่ GRACE_OUT ถึง 18:00 = นับถึง 18:00 · ต้องตรงกับสคริปต์ในชีต (calcWorkHours_ / autoUpdateDailySummaryCore_)
+//   (GRACE_OUT ใช้ถึง 31 ต.ค. — ตั้งแต่ RULE_15_FROM ออกกี่โมงนับตามจริง ดูด้านล่าง)
 var GRACE_IN     = "08:10";
 var GRACE_OUT    = "17:55";
 var WORK_END     = "18:00";
@@ -549,6 +550,19 @@ var RULE_Q_FROM  = "2026-10-16";
 var FINE_LATE    = 20;
 var FINE_EARLY   = 20;
 var EARLY_BEFORE = "17:00";
+
+// ── [13 พ.ย. 2569] ค่าแรงทีละ 15 นาที (เจ้าของสั่ง · ย้อนทั้งงวดตั้งแต่ 1 พ.ย.) — ใช้กับวันที่ตั้งแต่ RULE_15_FROM ──
+//   ต้องตรงกับสคริปต์ในชีต (calcDayPayBase_ / otPay_ / calcWorkHours_ / autoUpdateDailySummaryCore_)
+//   08:00–17:00 (BASE_HRS 8 ชม.) = ชม.ละ HOURLY_SHORT 50 = 400 ทุกคน
+//   17:00–18:00 ชั่วโมงสุดท้าย = ค่าแรงเต็มวัน − 400 (วันละ 450 → 50 · 470 → 70 · 500 → 100 · เดือน 14,500 → 83.33) นับทีละ 15 นาที
+//     เดิม: ไม่ครบ 9 ชม. = รายวันชม.ละ 50 / รายเดือน 400 → ขาด 15 นาทีหายเป็นก้อน
+//   ออก 17:55–17:59 ไม่ปัดเป็น 18:00 แล้ว (เลิก GRACE_OUT) · ตอนเช้าเหมือนเดิม (GRACE_IN · หักสาย/เลิกก่อน 20)
+//   OT หลังครบ 9 ชม. ทีละ 15 นาที OT_PER_15MIN (= ชม.ละ 70 เท่าเดิม) — เดิมทีละ 30 นาที ทำ 15 นาทีไม่ได้เงิน
+//   รายเดือนทำไม่ถึง 8 ชม. = HALF_DAY_PAY เหมือนเดิม · ค่าแรงวันต่ำกว่า 450 (เช่น คนจด 200) = ชม.ละ ค่าแรงวัน÷9
+//     (เดิมชม.ละ 50 → วันที่ทำไม่ครบได้มากกว่าวันเต็ม)
+var RULE_15_FROM = "2026-11-01";
+var BASE_HRS     = 8;      // ชั่วโมงก่อนชั่วโมงสุดท้าย (08:00–17:00 หักพักเที่ยง)
+var OT_PER_15MIN = 17.5;   // OT ทุก 15 นาที (ตั้งแต่ RULE_15_FROM)
 
 // ── สถานะ ──
 var SPECIAL_STATUSES = [
@@ -738,10 +752,11 @@ function calcWorkHours_(dateStr, cIn, cOut) {
   if (isNaN(tIn.getTime()) || isNaN(tOut.getTime())) return 0;
 
   // มาก่อน 08:00 → เริ่มนับที่ 08:00 · ตั้งแต่ RULE_Q_FROM เข้าไม่เกิน GRACE_IN ก็นับ 08:00 · ออก GRACE_OUT–18:00 นับถึง 18:00 (ดู รหัส.gs)
+  //   ตั้งแต่ RULE_15_FROM ออกนับตามจริง (ออก 17:55 = 17:45 ไม่ปัดเป็น 18:00)
   var t8 = new Date(dateStr + "T" + WORK_START + ":00");
   var grace = toDateStr_(dateStr) >= RULE_Q_FROM;
   if (tIn < t8 || (grace && cIn <= GRACE_IN)) tIn = t8;
-  if (grace && cOut >= GRACE_OUT && cOut < WORK_END) tOut = new Date(dateStr + "T" + WORK_END + ":00");
+  if (grace && !rule15_(dateStr) && cOut >= GRACE_OUT && cOut < WORK_END) tOut = new Date(dateStr + "T" + WORK_END + ":00");
 
   // กะดึก: บวก 24 ชม. เฉพาะ "เข้าตั้งแต่เที่ยง และออกก่อน 06:00"
   if (tOut <= tIn) {
@@ -786,21 +801,39 @@ function dayFines_(dateStr, status, checkIn, checkOut) {
   return f;
 }
 
-function otPay_(hours) {
+// วันที่ใช้กติกาค่าแรงทีละ 15 นาที (RULE_15_FROM) — ไม่ส่งวันที่ = กติกาเดิม
+function rule15_(dateStr) {
+  return !!dateStr && toDateStr_(dateStr) >= RULE_15_FROM;
+}
+
+// เงิน OT จากจำนวนชั่วโมงรวม (ปัดลง) — ตั้งแต่ RULE_15_FROM ทีละ 15 นาที · ก่อนหน้านั้นทีละ 30 นาที
+function otPay_(hours, dateStr) {
   var extra = (parseFloat(hours) || 0) - OT_START_HRS;
   if (extra <= 0) return 0;
+  if (rule15_(dateStr)) return Math.floor(extra * 4 + 1e-9) * OT_PER_15MIN;
   return Math.floor(extra / 0.5 + 1e-9) * OT_PER_30MIN;
 }
 
+// ค่าแรงวันที่ทำไม่ครบ FULL_DAY_HRS (ตั้งแต่ RULE_15_FROM) — fullDay = ค่าแรงเต็มวัน (รายเดือน = เงินเดือน/30)
+//   ชม.ละ 50 จนครบ BASE_HRS (= 400) · ชั่วโมงสุดท้าย (17:00–18:00) = ส่วนที่เหลือของค่าแรงเต็มวัน ตามเวลาที่ทำ (ทีละ 15 นาที)
+//   ค่าแรงวันต่ำกว่า 450 = ชม.ละ ค่าแรงวัน÷9 ทั้งวัน · รายเดือนไม่ถึง BASE_HRS = HALF_DAY_PAY (เหมือนเดิม)
+function shortDayPay_(fullDay, hours, monthly) {
+  var perHr = Math.max(0, Math.min(HOURLY_SHORT, fullDay / FULL_DAY_HRS));
+  var base  = BASE_HRS * perHr;
+  if (hours >= BASE_HRS) return base + (hours - BASE_HRS) * (fullDay - base);
+  return monthly ? HALF_DAY_PAY : hours * perHr;
+}
+
 // dateStr (ไม่ใส่ก็ได้) = หักสาย/เลิกก่อนของวันนั้น (dayFines_) · ไม่ใส่ = ค่าแรงก่อนหัก (ใช้แยก OT)
+//   dateStr ตั้งแต่ RULE_15_FROM = คิดค่าแรงทีละ 15 นาที (calcDayPayBase_)
 function calcDayPay_(payType, payRate, hours, status, checkIn, checkOut, dateStr) {
-  var base = calcDayPayBase_(payType, payRate, hours, status, checkIn, checkOut);
+  var base = calcDayPayBase_(payType, payRate, hours, status, checkIn, checkOut, dateStr);
   if (!dateStr || !(base > 0)) return base;
   var fine = dayFines_(dateStr, status, checkIn, checkOut).total;
   return fine ? Math.max(0, base - fine) : base;
 }
 
-function calcDayPayBase_(payType, payRate, hours, status, checkIn, checkOut) {
+function calcDayPayBase_(payType, payRate, hours, status, checkIn, checkOut, dateStr) {
   status  = String(status || "");
   hours   = parseFloat(hours)   || 0;
   payRate = parseFloat(payRate) || 0;
@@ -824,7 +857,8 @@ function calcDayPayBase_(payType, payRate, hours, status, checkIn, checkOut) {
     if (isAbsent)     return PAY_ON_ABSENT  ? payRate : 0;
     if (stillWorking) return 0;
     if (isForgot)     return PAY_FORGOT_CLOCK ? (payRate / 2) : 0;
-    return (hours >= FULL_DAY_HRS) ? (payRate + otPay_(hours)) : (hours * HOURLY_SHORT);
+    if (hours >= FULL_DAY_HRS) return payRate + otPay_(hours, dateStr);
+    return rule15_(dateStr) ? shortDayPay_(payRate, hours, false) : (hours * HOURLY_SHORT);
   }
 
   if (payType === "เดือน") {
@@ -835,18 +869,19 @@ function calcDayPayBase_(payType, payRate, hours, status, checkIn, checkOut) {
     if (isAbsent)     return PAY_ON_ABSENT    ? perDay : 0;
     if (stillWorking) return 0;
     if (isForgot)     return PAY_FORGOT_CLOCK ? HALF_DAY_PAY : 0;
-    return (hours >= FULL_DAY_HRS) ? (perDay + otPay_(hours)) : HALF_DAY_PAY;
+    if (hours >= FULL_DAY_HRS) return perDay + otPay_(hours, dateStr);
+    return rule15_(dateStr) ? shortDayPay_(perDay, hours, true) : HALF_DAY_PAY;
   }
 
   if (isOff)        return 0;
   if (stillWorking) return 0;
-  return hours * payRate + (OT_ON_HOURLY ? otPay_(hours) : 0);
+  return hours * payRate + (OT_ON_HOURLY ? otPay_(hours, dateStr) : 0);
 }
 
-function dayOtPay_(payType, payRate, hours, status, cIn, cOut) {
+function dayOtPay_(payType, payRate, hours, status, cIn, cOut, dateStr) {
   var capped = Math.min(parseFloat(hours) || 0, OT_START_HRS);
-  return calcDayPay_(payType, payRate, hours,  status, cIn, cOut) -
-         calcDayPay_(payType, payRate, capped, status, cIn, cOut);
+  return calcDayPayBase_(payType, payRate, hours,  status, cIn, cOut, dateStr) -
+         calcDayPayBase_(payType, payRate, capped, status, cIn, cOut, dateStr);
 }
 
 // ── โปรไฟล์ค่าจ้างของพนักงาน 1 คน จากแถวชีตรายชื่อ ──
