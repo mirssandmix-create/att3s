@@ -691,7 +691,7 @@ function saveAdv(r, a, st, btn, retry) {
     call(a ? "time.editAdv" : "time.addAdv", p).then(function () {
       BUSY = false; draftClear(); closeSheet();
       if (a) toast("✅ แก้รายการเบิกแล้ว — " + r.name + " " + baht(amt));
-      else snk("✅ เบิก " + baht(amt), r.name, advMsg(r, p, more));
+      else snk("✅ เบิก " + baht(amt), r.name, advMsg(r, p, more), advCardInfo(r, p, more));
       if (retry) dismissFail(retry);
       return refresh();
     }, function (e) {
@@ -754,14 +754,121 @@ function advMsg(r, p, more) {
   return L.join("\n");
 }
 var SNK_T = 0;
-function snk(text, sub, msg) {
+function snk(text, sub, msg, card) {
+  var img = null;   // วาดการ์ดไว้ก่อน — แตะแล้วส่งได้ทันที (iPhone ต้องเปิดเมนูแชร์ตอนแตะเลย)
+  if (card) advCard(card).then(function (u) { img = u; }, function () {});
   $("snk").innerHTML = "<span>" + esc(text) + "<small>" + esc(sub) + '</small></span><button class="msg" id="snkM">📤 ส่ง Messenger</button><button class="x" id="snkX" aria-label="ปิด">✕</button>';
   $("snk").className = "on";
-  $("snkM").onclick = function () { snkHide(); shareMsg(msg); };
+  $("snkM").onclick = function () {
+    if (card && !img) { toast("⏳ กำลังทำการ์ด… แตะอีกครั้ง"); return; }
+    snkHide(); shareCard(img, msg);
+  };
   $("snkX").onclick = snkHide;
   clearTimeout(SNK_T); SNK_T = setTimeout(snkHide, 12000);
 }
 function snkHide() { clearTimeout(SNK_T); $("snk").className = ""; }
+
+/* ═══ การ์ดเบิก (รูป JPEG กว้าง 1080) — ส่งเข้า Messenger พร้อมรูปที่ถ่ายตอนเบิก ═══
+   แอพ Android รุ่นใหม่ = ShopAndroid.shareImage · iPhone = เมนูแชร์ (ไฟล์รูป) · แอพรุ่นเก่า = ส่งเป็นข้อความแทน */
+function advCardInfo(r, p, more) {
+  var o = { name: r.name, id: r.id, amt: p.amount, day: thShort(r.date) + " " + (ymd(r.date).y + 543), time: p.time || nowHM(), payer: p.payer || "", note: p.note || "", photo: p.photo || "" };
+  if (r.per && BOOT && BOOT.period && r.date >= BOOT.period.from && r.date <= BOOT.period.to)
+    o.per = { lb: perLabel(BOOT.period.from, BOOT.period.to), pay: r.per.pay, adv: r.per.adv + more, net: r.per.net - more };
+  return o;
+}
+function loadImg(u) { return new Promise(function (res) { if (!u) return res(null); var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = u; }); }
+/* ตัดบรรทัดภาษาไทย (ไม่มีเว้นวรรค) — ตัดตามตัวอักษร ไม่ให้สระ/วรรณยุกต์หลุดไปต้นบรรทัด */
+function cardWrap(x, s, w) {
+  var out = [], line = "", ch = String(s).replace(/\s+/g, " ").match(/.[ัิ-ฺ็-๎]*/g) || [];
+  ch.forEach(function (c) { if (line && x.measureText(line + c).width > w) { out.push(line); line = c.replace(/^ /, ""); } else line += c; });
+  if (line) out.push(line);
+  return out.length ? out : [""];
+}
+function rrect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+/* 13 พ.ย. ผู้ใช้เลือกแบบ A: รูปที่ถ่ายอยู่บน ใต้หัวการ์ด */
+function advCard(o) {
+  var fl = Promise.resolve();
+  try { if (document.fonts && document.fonts.load) fl = Promise.all(["700 60px Prompt", "600 40px Prompt", "400 30px Prompt"].map(function (f) { return document.fonts.load(f, "กข฿1"); })).catch(function () {}); } catch (e) {}
+  return Promise.all([fl, loadImg(o.photo)]).then(function (a) {
+    var im = a[1], W = 1080, X = 88, CW = W - X * 2, F = function (s, z) { return s + " " + z + "px Prompt, 'Noto Sans Thai', sans-serif"; };
+    var c = document.createElement("canvas"), x = c.getContext("2d");
+    c.width = W; c.height = 10;
+    // ทำ 2 รอบ: รอบแรกวัดความสูง · รอบสองวาดจริง
+    function lay(draw) {
+      var y = 40 + 56;
+      function t(s, font, col, tx, ty, al) { if (!draw) return; x.font = font; x.fillStyle = col; x.textAlign = al || "left"; x.textBaseline = "alphabetic"; x.fillText(s, tx, ty); }
+      function head() {
+        t("💸 ใบเบิกเงิน", F(700, 46), "#c2410c", X, y + 50);
+        t(o.day + (o.time ? " · " + o.time : ""), F(600, 32), "#6b7280", X + CW, y + 48, "right");
+        y += 82;
+        if (draw) { x.fillStyle = "#e5e7eb"; x.fillRect(X, y, CW, 2); }
+        y += 36;
+      }
+      function photo() {
+        if (!im) return;
+        var h = Math.min(Math.round(CW * im.height / im.width), 1080), k = Math.max(CW / im.width, h / im.height), sw = CW / k, sh = h / k;
+        if (draw) { x.save(); rrect(x, X, y, CW, h, 28); x.clip(); x.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, X, y, CW, h); x.restore(); }
+        y += h + 40;
+      }
+      function who() {
+        x.font = F(700, 56);
+        var L = cardWrap(x, o.name, CW - 140);
+        L.forEach(function (s, i) { t(s, F(700, 56), "#111827", X, y + 58 + i * 72); });
+        t("#" + o.id, F(600, 36), "#6b7280", X + CW, y + 56, "right");
+        y += L.length * 72 + 18;
+        t("ยอดเบิก", F(600, 32), "#6b7280", X, y + 34);
+        t(baht(o.amt), F(700, 124), "#b91c1c", X, y + 166);
+        y += 196;
+      }
+      function rows() {
+        [["🙋 ผู้จ่าย", o.payer], ["📝 หมายเหตุ", o.note]].forEach(function (q) {
+          if (!q[1]) return;
+          x.font = F(600, 38);
+          var L = cardWrap(x, q[1], CW - 270);
+          t(q[0], F(600, 34), "#6b7280", X, y + 46);
+          L.forEach(function (s, i) { t(s, F(600, 38), "#111827", X + 270, y + 46 + i * 56); });
+          y += L.length * 56 + 18;
+        });
+        y += 14;
+      }
+      function per() {
+        if (!o.per) return;
+        var h = 214, cw = (CW - 56) / 3;
+        if (draw) { rrect(x, X, y, CW, h, 26); x.fillStyle = "#f9fafb"; x.fill(); x.lineWidth = 2; x.strokeStyle = "#e5e7eb"; x.stroke(); }
+        t("📒 งวด " + o.per.lb + " · ถึงวันนี้", F(600, 32), "#6b7280", X + 28, y + 56);
+        [["ค่าแรง", o.per.pay, "#15803d"], ["เบิกรวม", o.per.adv, "#b91c1c"], ["คงเหลือ", o.per.net, o.per.net < 0 ? "#b91c1c" : "#111827"]].forEach(function (q, i) {
+          t(q[0], F(400, 30), "#6b7280", X + 28 + i * cw, y + 116);
+          t(baht(q[1]), F(700, 46), q[2], X + 28 + i * cw, y + 176);
+        });
+        y += h + 30;
+      }
+      head();
+      photo(); who(); rows(); per();
+      return y + 24 + 40;
+    }
+    var H = lay(false);
+    c.height = H;
+    x.fillStyle = "#f4f5f7"; x.fillRect(0, 0, W, H);
+    rrect(x, 40, 40, W - 80, H - 80, 40); x.fillStyle = "#fff"; x.fill(); x.lineWidth = 2; x.strokeStyle = "#e5e7eb"; x.stroke();
+    lay(true);
+    return c.toDataURL("image/jpeg", 0.88);
+  });
+}
+function dataFile(u, name) {
+  var b = atob(u.split(",")[1]), n = b.length, a = new Uint8Array(n);
+  while (n--) a[n] = b.charCodeAt(n);
+  return new File([a], name, { type: "image/jpeg" });
+}
+/* ส่งการ์ด — u = รูปที่วาดไว้แล้ว (วาดล่วงหน้าตอนแถบขึ้น iPhone จะได้เปิดเมนูแชร์ทันทีที่แตะ) · ไม่มีทางส่งรูป = ส่งข้อความ */
+function shareCard(u, text) {
+  if (!u) return shareMsg(text);
+  try { if (typeof ShopAndroid.shareImage === "function") { if (ShopAndroid.shareImage(u.split(",")[1], "ส่งการ์ดเบิก")) return; } } catch (e) {}
+  try {
+    var f = dataFile(u, "เบิกเงิน.jpg");
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
+  } catch (e) {}
+  shareMsg(text);
+}
 
 /* ═══ หน้าสรุปเบิก (วันที่ดูอยู่ · ทุกสาขา) ═══ */
 function openAdvp() { ADVP = true; drawAdvp(); $("advp").className = "on"; $("advp").scrollTop = 0; }
