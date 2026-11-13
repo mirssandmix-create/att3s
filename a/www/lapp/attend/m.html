@@ -83,6 +83,9 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st.lv{background:#0f1b33;color:#93c5fd}}
 .tm{display:flex;gap:8px 12px;margin-top:6px;color:var(--mu);font-size:.9rem;font-weight:500;flex-wrap:wrap;align-items:center}
 /* 13 พ.ย. ผู้ใช้ขอ: ปุ่มเบิกเล็กมุมขวาบน (แทนป้ายสถานะ) · แตะเวลาเข้า/ออก = แก้เวลา (แทนปุ่มใหญ่ 2 ปุ่ม) */
+/* สถานะ (ปกติ/มาสาย/ลา…) + เลิกงาน — ป้ายเล็กใต้ชื่อ (13 พ.ย. ผู้ใช้เลือก "ข้างล่าง") */
+.stl{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+.stl .st,.stl .tag{font-size:.72rem;padding:1px 8px;font-weight:600}
 .qa{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);background:var(--ac2);color:var(--acT);font:inherit;font-weight:700;font-size:.9rem;white-space:nowrap}
 .tb{border:1px solid var(--bd);background:var(--in);border-radius:10px;padding:3px 10px;font:inherit;color:var(--mu);font-weight:500;font-size:.9rem}
 .tm b{color:var(--tx);font-weight:700;font-size:1rem}
@@ -493,12 +496,13 @@ function fineTags(f) {
 function card(r, i) {
   var off = SPECIAL.indexOf(r.status) >= 0, done = !off && !noT(r.out);
   var advs = r.advs || [], h = '<div class="card' + (off ? " off" : done ? " done" : "") + '" data-i="' + i + '">';
-  h += '<div class="ch"><div class="nm" data-act="person">' + esc(r.name) + '<span class="id">#' + esc(r.id) + '</span><span class="go"> ›</span></div>'
+  var sts = (r.status ? '<span class="st ' + stCls(r.status) + '">' + esc(r.status) + "</span>" : "") + (done ? '<span class="tag done">🏁 เลิกงาน</span>' : "");
+  h += '<div class="ch"><div class="nm" data-act="person">' + esc(r.name) + '<span class="id">#' + esc(r.id) + '</span><span class="go"> ›</span>'
+    + (sts ? '<div class="stl">' + sts + "</div>" : "") + "</div>"
     + '<button class="qa" data-act="adv">💸 เบิกเงิน</button></div>';
   h += '<div class="tm"><button class="tb" data-act="edit">เข้า <b' + (r.fine && r.fine.late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + '</b></button><button class="tb" data-act="edit">ออก <b' + (r.fine && r.fine.early ? ' class="fl"' : "") + ">"
     + esc(r.out || "--:--") + "</b></button>" + (r.hrs ? "<span>" + r.hrs + " ชม.</span>" : "") + (r.branch ? "<span>📍 " + esc(r.branch) + "</span>" : "") + "</div>";
-  var mo = (r.status && !/ปกติ|สาย/.test(r.status) ? '<span class="st ' + stCls(r.status) + '">' + esc(r.status) + "</span>" : "")
-    + (r.pay ? '<span class="pay">ค่าแรง ' + baht(r.pay) + "</span>" : "") + (r.tip ? '<span class="pay">ทิป ' + baht(r.tip) + "</span>" : "")
+  var mo = (r.pay ? '<span class="pay">ค่าแรง ' + baht(r.pay) + "</span>" : "") + (r.tip ? '<span class="pay">ทิป ' + baht(r.tip) + "</span>" : "")
     + (r.adv ? '<span class="adv">เบิก ' + baht(r.adv) + "</span>" : "") + fineTags(r.fine);
   if (r.per) mo += '<span class="per' + (r.per.net < 0 ? " neg" : "") + '">งวดนี้เหลือ ' + baht(r.per.net) + "</span>";
   if (mo) h += '<div class="mo">' + mo + "</div>";
@@ -537,7 +541,8 @@ document.addEventListener("click", function (e) {
   if (act === "edit") return editForm(r);
 }, false);
 $("dayPick").onchange = function () { var v = this.value; if (!v || !BOOT) return; if (v > TODAY()) v = TODAY(); CUR = v; loadDay(); };
-/* แถวที่ยังมีคำสั่งรอเว็บยืนยัน = ยังแก้/ลบรายการเบิกไม่ได้ (รหัสรายการในมือถือกับบนเว็บอาจไม่ตรงกันจนกว่าจะดึงชีตใหม่) */
+/* แถวที่ยังมีคำสั่งรอเว็บยืนยัน — 13 พ.ย. แก้/ลบได้ทันทีแล้ว: รหัสรายการ (A…) ในมือถือ = บนเว็บ (ตัวคิดตั้งรหัสจากเลขคำสั่งเดียวกัน)
+   + คำสั่งส่งตามลำดับที่กด (AttSync ทีละคำสั่ง) → แก้ต่อจากเพิ่มได้ถูก · ยังต้องรอเฉพาะ "ยอดเดิมในชีต" (legacy — ได้รหัสจริงตอนเว็บแปลงเป็นรายการ) */
 function rowPending(r) {
   var st = LAPP.state && LAPP.state(), k = r.date + "|" + r.id;
   return !!(st && (st.q || []).some(function (c) { return (c.rows || []).indexOf(k) >= 0; }));
@@ -545,7 +550,7 @@ function rowPending(r) {
 var WAIT_N = 0;
 function editAdvGuard(r, a) {
   if (!a) return;
-  if (!rowPending(r)) return advForm(r, a);
+  if (!rowPending(r) || a.item !== "legacy") return advForm(r, a);
   // รหัสรายการในเครื่องกับบนเว็บอาจไม่ตรงกันจนกว่าจะส่งเสร็จ — รอส่งเสร็จก่อน แล้วหารายการเดิมจากข้อมูลใหม่ (13 พ.ย. ผู้ใช้ให้เอากล่องเตือนออก)
   var n = ++WAIT_N, t0 = Date.now(), k = (r.advs || []).indexOf(a), f0 = FORM;   // f0 = หน้าต่างวัน (ดูอย่างเดียว) ที่เปิดอยู่ตอนแตะ
   toast("⏳ กำลังส่งขึ้นเว็บ… เดี๋ยวเปิดให้เอง");
@@ -805,7 +810,7 @@ function saveAdv(r, a, st, btn, retry) {
   });
 }
 function delAdv(r, a) {
-  if (rowPending(r)) { toast("⏳ กำลังส่งขึ้นเว็บ — รอกระดิ่งหายแล้วกดลบอีกครั้ง"); try { LAPP.sync().catch(function () {}); } catch (e) {} return; }
+  if (rowPending(r) && a.item === "legacy") { toast("⏳ กำลังส่งขึ้นเว็บ — รอกระดิ่งหายแล้วกดลบอีกครั้ง"); try { LAPP.sync().catch(function () {}); } catch (e) {} return; }
   ask("ลบรายการเบิก " + baht(a.amt) + " ของ " + r.name + (a.time ? " (เวลา " + a.time + ")" : "") + " ?\n(ในชีตจะเก็บไว้ว่าเคยลบ)", "ลบ", "ไม่ลบ").then(function (y) {
     if (!y || BUSY) return;
     BUSY = true;
