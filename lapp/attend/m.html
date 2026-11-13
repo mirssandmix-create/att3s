@@ -33,7 +33,12 @@ button,[data-act]{cursor:pointer}   /* iPhone ส่งการแตะให�
 .top{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 12px 6px;border-bottom:1px solid var(--bd)}
 .r1{display:flex;align-items:center;gap:8px}
 .r1 h1{font-size:1.15rem;font-weight:700;margin:0;flex:1;white-space:nowrap}
-#lappSt{font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--card);border:1px solid var(--bd);color:var(--mu);max-width:52vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lappSt{display:none!important}   /* 13 พ.ย. ผู้ใช้ขอเอาป้าย "ตรงกับเว็บแล้ว" ออก — ใช้กระดิ่ง #bell แทน (ขึ้นเฉพาะตอนรอส่ง/ส่งไม่ผ่าน) */
+#bell{display:none;position:relative}
+#bell.on{display:inline-flex}
+#bell.bad{border-color:var(--adv);background:var(--advBg)}
+#bell i{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--warn);color:#fff;font:700 .72rem/20px Prompt,sans-serif;font-style:normal;text-align:center}
+#bell.bad i{background:var(--adv)}
 #lappSt.wait{color:var(--warn);background:var(--warnBg);border-color:transparent}
 #lappSt.bad{color:var(--adv);background:var(--advBg);border-color:transparent}
 #lappSt.off{color:var(--mu)}
@@ -76,7 +81,10 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 .st.lv{background:#eff6ff;color:#1d4ed8;border-color:transparent}
 :root[data-theme=dark] .st.lv{background:#0f1b33;color:#93c5fd}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st.lv{background:#0f1b33;color:#93c5fd}}
-.tm{display:flex;gap:14px;margin-top:6px;color:var(--mu);font-size:.9rem;font-weight:500;flex-wrap:wrap}
+.tm{display:flex;gap:8px 12px;margin-top:6px;color:var(--mu);font-size:.9rem;font-weight:500;flex-wrap:wrap;align-items:center}
+/* 13 พ.ย. ผู้ใช้ขอ: ปุ่มเบิกเล็กมุมขวาบน (แทนป้ายสถานะ) · แตะเวลาเข้า/ออก = แก้เวลา (แทนปุ่มใหญ่ 2 ปุ่ม) */
+.qa{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);background:var(--ac2);color:var(--acT);font:inherit;font-weight:700;font-size:.9rem;white-space:nowrap}
+.tb{border:1px solid var(--bd);background:var(--in);border-radius:10px;padding:3px 10px;font:inherit;color:var(--mu);font-weight:500;font-size:.9rem}
 .tm b{color:var(--tx);font-weight:700;font-size:1rem}
 .tm .fl{color:var(--warn)}
 .mo{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;font-size:.88rem}
@@ -93,6 +101,8 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 .al .m{flex:1;color:var(--mu);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .al img,.al .noimg{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none}
 .al .noimg{display:flex;align-items:center;justify-content:center;background:var(--in);font-size:.9rem}
+/* 13 พ.ย. ผู้ใช้ขอ: แตะแถวแดง = การ์ดเบิก · ปุ่ม ✏️ ข้างรูป = แก้รายการ */
+.al .ae{width:36px;height:36px;border-radius:8px;flex:none;border:1px solid var(--bd);background:var(--card);font-size:.95rem;display:flex;align-items:center;justify-content:center;padding:0}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .b{height:46px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700;font-size:.98rem}
 .b.adv{background:var(--ac);border-color:var(--ac);color:#fff}
@@ -225,13 +235,12 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 #advp{position:fixed;inset:0;z-index:25;background:var(--bg);overflow-y:auto;display:none;padding-bottom:40px}
 #advp.on{display:block}
 /* ดูการ์ดเบิก (แตะรายการในหน้าสรุปเบิก) */
-#cardv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.82);display:none;flex-direction:column;padding:14px 12px 16px}
+#cardv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.82);display:none;flex-direction:column;padding:44px 22px 16px}   /* ที่ว่างรอบการ์ด = แตะปิด */
 #cardv.on{display:flex}
 #cardv .cv{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;color:#fff}
 #cardv .cv img,#cardv .cv canvas{max-width:100%;max-height:100%;border-radius:14px;object-fit:contain}
 #cardv .cb{display:flex;gap:10px;margin-top:12px}
 #cardv .cb .msg{flex:1;margin:0}
-#cardv .cb .x{flex:none;width:96px;height:46px;border:0;border-radius:14px;background:#374151;color:#fff;font-weight:700;font-size:.98rem}
 .msg{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;margin:0 0 10px;border:0;border-radius:14px;background:#0866ff;color:#fff;font-weight:700;font-size:.98rem}
 .atb{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh)}
 .atl{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--bd);background:none;padding:10px 12px;font-size:1rem}
@@ -268,7 +277,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 </head>
 <body>
 <div class="top">
-  <div class="r1"><h1>⏱️ เวลาทำงาน</h1><div id="lappSt" class="lappSt">⏳ กำลังเตรียม…</div><button class="ib" data-act="menu" aria-label="เมนู">⋯</button></div>
+  <div class="r1"><h1>⏱️ เวลาทำงาน</h1><div id="lappSt" class="lappSt">⏳ กำลังเตรียม…</div><button class="ib" id="bell" aria-label="รอส่งขึ้นเว็บ">🔔<i></i></button><button class="ib" data-act="menu" aria-label="เมนู">⋯</button></div>
   <div class="r2">
     <button class="ib" data-act="prev" aria-label="วันก่อน">‹</button>
     <button class="day" id="dayBtn"><span id="dayTx">—</span><input type="date" id="dayPick" aria-label="เลือกวัน"></button>
@@ -282,7 +291,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 <div id="person"></div>
 <div id="advp"></div>
 <div id="snk"></div>
-<div id="cardv"><div class="cv" id="cvBox"></div><div class="cb"><button class="msg" id="cvMsg">📤 ส่ง Messenger</button><button class="x" id="cvX">ปิด</button></div></div>
+<div id="cardv"><div class="cv" id="cvBox"></div><div class="cb"><button class="msg" id="cvMsg">📤 ส่ง Messenger</button></div></div>
 <div id="mask"></div>
 <div class="sheet" id="sheet"></div>
 <div id="dlg"><div class="bx"><div class="t" id="dlgT"></div><div class="bt"><button id="dlgN">ยกเลิก</button><button class="y" id="dlgY">ตกลง</button></div></div></div>
@@ -471,10 +480,11 @@ function card(r, i) {
   var off = SPECIAL.indexOf(r.status) >= 0, done = !off && !noT(r.out);
   var advs = r.advs || [], h = '<div class="card' + (off ? " off" : done ? " done" : "") + '" data-i="' + i + '">';
   h += '<div class="ch"><div class="nm" data-act="person">' + esc(r.name) + '<span class="id">#' + esc(r.id) + '</span><span class="go"> ›</span></div>'
-    + (done ? '<span class="tag done">🏁 เลิกงาน</span>' : "") + '<span class="st ' + stCls(r.status) + '">' + esc(r.status || "—") + "</span></div>";
-  h += '<div class="tm"><span>เข้า <b' + (r.fine && r.fine.late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + '</b></span><span>ออก <b' + (r.fine && r.fine.early ? ' class="fl"' : "") + ">"
-    + esc(r.out || "--:--") + "</b></span>" + (r.hrs ? "<span>" + r.hrs + " ชม.</span>" : "") + (r.branch ? "<span>📍 " + esc(r.branch) + "</span>" : "") + "</div>";
-  var mo = (r.pay ? '<span class="pay">ค่าแรง ' + baht(r.pay) + "</span>" : "") + (r.tip ? '<span class="pay">ทิป ' + baht(r.tip) + "</span>" : "")
+    + '<button class="qa" data-act="adv">💸 เบิกเงิน</button></div>';
+  h += '<div class="tm"><button class="tb" data-act="edit">เข้า <b' + (r.fine && r.fine.late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + '</b></button><button class="tb" data-act="edit">ออก <b' + (r.fine && r.fine.early ? ' class="fl"' : "") + ">"
+    + esc(r.out || "--:--") + "</b></button>" + (r.hrs ? "<span>" + r.hrs + " ชม.</span>" : "") + (r.branch ? "<span>📍 " + esc(r.branch) + "</span>" : "") + "</div>";
+  var mo = (r.status && !/ปกติ|สาย/.test(r.status) ? '<span class="st ' + stCls(r.status) + '">' + esc(r.status) + "</span>" : "")
+    + (r.pay ? '<span class="pay">ค่าแรง ' + baht(r.pay) + "</span>" : "") + (r.tip ? '<span class="pay">ทิป ' + baht(r.tip) + "</span>" : "")
     + (r.adv ? '<span class="adv">เบิก ' + baht(r.adv) + "</span>" : "") + fineTags(r.fine);
   if (r.per) mo += '<span class="per' + (r.per.net < 0 ? " neg" : "") + '">งวดนี้เหลือ ' + baht(r.per.net) + "</span>";
   if (mo) h += '<div class="mo">' + mo + "</div>";
@@ -482,12 +492,12 @@ function card(r, i) {
   if (advs.length) {
     h += '<div class="advs">';
     advs.forEach(function (a, k) {
-      h += '<button class="al" data-act="aedit" data-k="' + k + '"><b>' + baht(a.amt) + '</b><span class="m">' + esc([a.time, a.payer, a.note].filter(Boolean).join(" · ") || "—") + "</span>"
-        + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : '<span class="noimg">📷</span>') + "</button>";
+      h += '<div class="al" data-act="acard" data-k="' + k + '"><b>' + baht(a.amt) + '</b><span class="m">' + esc([a.time, a.payer, a.note].filter(Boolean).join(" · ") || "—") + "</span>"
+        + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : '<span class="noimg">📷</span>')
+        + '<button class="ae" data-act="aedit" data-k="' + k + '" aria-label="แก้รายการเบิก">✏️</button></div>';
     });
     h += "</div>";
   }
-  h += '<div class="acts"><button class="b adv" data-act="adv">💸 เบิกเงิน</button><button class="b ed" data-act="edit">✏️ แก้เวลา</button></div>';
   return h + "</div>";
 }
 
@@ -509,6 +519,7 @@ document.addEventListener("click", function (e) {
   if (act === "person") return openPerson(r.id);
   if (act === "adv") return advForm(r, null);
   if (act === "aedit") return editAdvGuard(r, (r.advs || [])[+b.getAttribute("data-k")]);
+  if (act === "acard") { var ca = (r.advs || [])[+b.getAttribute("data-k")]; if (ca) openCardv(r, ca); return; }
   if (act === "edit") return editForm(r);
 }, false);
 $("dayPick").onchange = function () { var v = this.value; if (!v || !BOOT) return; if (v > TODAY()) v = TODAY(); CUR = v; loadDay(); };
@@ -517,11 +528,42 @@ function rowPending(r) {
   var st = LAPP.state && LAPP.state(), k = r.date + "|" + r.id;
   return !!(st && (st.q || []).some(function (c) { return (c.rows || []).indexOf(k) >= 0; }));
 }
+var WAIT_N = 0;
 function editAdvGuard(r, a) {
   if (!a) return;
-  if (rowPending(r)) { ask("⏳ รายการของ " + r.name + " วันนั้นยังรอส่งขึ้นเว็บ\nรอให้ป้ายด้านบนขึ้น \"☁ ✓ ตรงกับเว็บแล้ว\" ก่อน แล้วค่อยแก้/ลบ\n(กันแก้ผิดรายการ)", "ตกลง", false); return; }
-  advForm(r, a);
+  if (!rowPending(r)) return advForm(r, a);
+  // รหัสรายการในเครื่องกับบนเว็บอาจไม่ตรงกันจนกว่าจะส่งเสร็จ — รอส่งเสร็จก่อน แล้วหารายการเดิมจากข้อมูลใหม่ (13 พ.ย. ผู้ใช้ให้เอากล่องเตือนออก)
+  var n = ++WAIT_N, t0 = Date.now(), k = (r.advs || []).indexOf(a);
+  toast("⏳ กำลังส่งขึ้นเว็บ… เดี๋ยวเปิดให้เอง");
+  try { LAPP.sync().catch(function () {}); } catch (e) {}
+  (function tick() {
+    if (n !== WAIT_N || FORM || $("sheet").classList.contains("on")) return;   // แตะอย่างอื่นไปแล้ว = เลิกรอ
+    if (rowPending(r)) {
+      if (Date.now() - t0 > 60e3) { toast("📶 ยังส่งขึ้นเว็บไม่ได้ — ต่อเน็ตแล้วลองใหม่", true); return; }
+      return setTimeout(tick, 1000);
+    }
+    rowOf(r.id, r.date).then(function (r2) {
+      if (n !== WAIT_N || FORM || !r2) return;
+      var L = r2.advs || [], same = function (x) { return +x.amt === +a.amt && (x.time || "") === (a.time || "") && (x.note || "") === (a.note || "") && (x.payer || "") === (a.payer || ""); };
+      var a2 = L.filter(same)[0] || (L[k] && +L[k].amt === +a.amt ? L[k] : null);
+      if (a2) advForm(r2, a2); else toast("รายการเปลี่ยนไปแล้ว — แตะใหม่อีกครั้ง");
+    });
+  })();
 }
+/* กระดิ่ง: อ่านจากป้ายสถานะเดิม (client.js วาดทุกครั้งที่สถานะเปลี่ยน) · รอส่ง = กระดิ่งส้ม+จำนวน · ส่งไม่ผ่าน = แดง · ส่งเสร็จ = หาย */
+function bellPaint() {
+  var el = $("lappSt"), b = $("bell"), c = " " + el.className, m = /(\d+)/.exec(el.textContent || "");
+  var bad = / bad/.test(c), wait = / wait/.test(c);
+  b.className = "ib" + (bad || wait ? " on" : "") + (bad ? " bad" : "");
+  b.querySelector("i").textContent = m && (bad || wait) ? m[1] : "";
+  b.setAttribute("aria-label", el.textContent || "");
+}
+new MutationObserver(bellPaint).observe($("lappSt"), { attributes: true, childList: true, characterData: true, subtree: true });
+$("bell").onclick = function () {
+  if (/ bad/.test(" " + $("lappSt").className)) return showFails(true);
+  toast("⏳ " + ($("lappSt").textContent || "").replace(/^⏳\s*/, "") + " — มีเน็ตแอพส่งเอง");
+  try { LAPP.sync().catch(function () {}); } catch (e) {}
+};
 $("dayBtn").onclick = function (e) { var p = $("dayPick"); try { if (p.showPicker) { p.showPicker(); e.preventDefault(); } } catch (x) {} };
 $("q").oninput = function () { QTXT = this.value; render(); };
 function zoom(u) { $("zm").querySelector("img").src = String(u).replace("sz=w800", "sz=w1600"); $("zm").className = "on"; }
@@ -683,7 +725,7 @@ function saveAdv(r, a, st, btn, retry) {
   });
 }
 function delAdv(r, a) {
-  if (rowPending(r)) { ask("⏳ รายการของ " + r.name + " วันนั้นยังรอส่งขึ้นเว็บ\nรอให้ป้ายด้านบนขึ้น \"☁ ✓ ตรงกับเว็บแล้ว\" ก่อน แล้วค่อยลบ", "ตกลง", false); return; }
+  if (rowPending(r)) { toast("⏳ กำลังส่งขึ้นเว็บ — รอกระดิ่งหายแล้วกดลบอีกครั้ง"); try { LAPP.sync().catch(function () {}); } catch (e) {} return; }
   ask("ลบรายการเบิก " + baht(a.amt) + " ของ " + r.name + (a.time ? " (เวลา " + a.time + ")" : "") + " ?\n(ในชีตจะเก็บไว้ว่าเคยลบ)", "ลบ", "ไม่ลบ").then(function (y) {
     if (!y || BUSY) return;
     BUSY = true;
@@ -796,10 +838,16 @@ function advCard(o) {
         if (draw) { x.fillStyle = "#e5e7eb"; x.fillRect(X, y, CW, 2); }
         y += 36;
       }
+      // ช่องรูปสี่เหลี่ยมจัตุรัสเท่ากันทุกใบ (13 พ.ย. ผู้ใช้ถามว่าทำไมการ์ดไม่เหมือนกัน) — รูปทั้งรูปอยู่ในช่อง ไม่ตัด · ไม่ได้ถ่าย = ช่องเทา "ไม่ได้ถ่ายรูป"
       function photo() {
-        if (!im) return;
-        var h = Math.min(Math.round(CW * im.height / im.width), 1080), k = Math.max(CW / im.width, h / im.height), sw = CW / k, sh = h / k;
-        if (draw) { x.save(); rrect(x, X, y, CW, h, 28); x.clip(); x.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, X, y, CW, h); x.restore(); }
+        var h = CW;
+        if (draw) {
+          x.save(); rrect(x, X, y, CW, h, 28); x.clip();
+          x.fillStyle = "#eef0f3"; x.fillRect(X, y, CW, h);
+          if (im) { var k = Math.min(CW / im.width, h / im.height), dw = im.width * k, dh = im.height * k; x.drawImage(im, X + (CW - dw) / 2, y + (h - dh) / 2, dw, dh); }
+          x.restore();
+          if (!im) { t("📷", F(400, 110), "#9ca3af", X + CW / 2, y + h / 2 - 10, "center"); t("ไม่ได้ถ่ายรูป", F(600, 40), "#9ca3af", X + CW / 2, y + h / 2 + 70, "center"); }
+        }
         y += h + 40;
       }
       function who() {
@@ -859,7 +907,7 @@ function openCardv(r, a) {
     if (typeof u === "string") { var im = new Image(); im.src = u; im.alt = ""; $("cvBox").appendChild(im); } else $("cvBox").appendChild(u);
   }, function () { if (n === CV_N) $("cvBox").textContent = "❌ ทำการ์ดไม่ได้"; });
   $("cvMsg").onclick = function () { if (!img) { toast("⏳ กำลังทำการ์ด…"); return; } shareCard(img, text); };
-  $("cvX").onclick = closeCardv;
+  $("cardv").onclick = function (e) { if (!e.target.closest("img,canvas,button")) closeCardv(); };
 }
 function closeCardv() { CV_N++; $("cardv").className = ""; $("cvBox").innerHTML = ""; }
 function dataFile(u, name) {
@@ -1213,7 +1261,7 @@ function onPersonClick(e) {
 /* ═══ ส่งไม่ผ่าน ═══ */
 var FAIL_OPEN = false;
 function showFails(clicked) {
-  var busyMsg = function () { if (!clicked) toast("⚠ มีรายการส่งขึ้นเว็บไม่ผ่าน — แตะป้ายด้านบนเพื่อดู", true); };
+  var busyMsg = function () { if (!clicked) toast("⚠ มีรายการส่งขึ้นเว็บไม่ผ่าน — แตะกระดิ่ง 🔔 ด้านบนเพื่อดู", true); };
   if (FORM && FORM.view && !FAIL_OPEN) closeSheet();
   if (FAIL_OPEN || FORM) { busyMsg(); return; }
   parent.api("att/failed").then(function (j) {
