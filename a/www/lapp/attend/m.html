@@ -224,8 +224,14 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 /* หน้าสรุปเบิก (13 พ.ย.) — แตะกล่อง "เบิกวันนี้" ในหน้าวัน · ใช้หัว/สรุปแบบหน้าคน · แตะคน = หน้าคน (ซ้อนบน) */
 #advp{position:fixed;inset:0;z-index:25;background:var(--bg);overflow-y:auto;display:none;padding-bottom:40px}
 #advp.on{display:block}
-.apay{margin-top:8px;font-size:.82rem;color:var(--mu);font-weight:500;line-height:1.6}
-.apay b{color:var(--tx);font-weight:700}
+/* ดูการ์ดเบิก (แตะรายการในหน้าสรุปเบิก) */
+#cardv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.82);display:none;flex-direction:column;padding:14px 12px 16px}
+#cardv.on{display:flex}
+#cardv .cv{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;color:#fff}
+#cardv .cv img,#cardv .cv canvas{max-width:100%;max-height:100%;border-radius:14px;object-fit:contain}
+#cardv .cb{display:flex;gap:10px;margin-top:12px}
+#cardv .cb .msg{flex:1;margin:0}
+#cardv .cb .x{flex:none;width:96px;height:46px;border:0;border-radius:14px;background:#374151;color:#fff;font-weight:700;font-size:.98rem}
 .msg{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;margin:0 0 10px;border:0;border-radius:14px;background:#0866ff;color:#fff;font-weight:700;font-size:.98rem}
 .atb{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh)}
 .atl{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--bd);background:none;padding:10px 12px;font-size:1rem}
@@ -276,6 +282,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 <div id="person"></div>
 <div id="advp"></div>
 <div id="snk"></div>
+<div id="cardv"><div class="cv" id="cvBox"></div><div class="cb"><button class="msg" id="cvMsg">📤 ส่ง Messenger</button><button class="x" id="cvX">ปิด</button></div></div>
 <div id="mask"></div>
 <div class="sheet" id="sheet"></div>
 <div id="dlg"><div class="bx"><div class="t" id="dlgT"></div><div class="bt"><button id="dlgN">ยกเลิก</button><button class="y" id="dlgY">ตกลง</button></div></div></div>
@@ -539,6 +546,7 @@ window.appBackInner = function () {
   if ($("sheet").classList.contains("on")) { backSheet(); return true; }
   if (PER) { closePerson(); return true; }
   if ($("snk").className === "on") { snkHide(); return true; }
+  if ($("cardv").className === "on") { closeCardv(); return true; }
   if (ADVP) { closeAdvp(); return true; }
   return false;
 };
@@ -745,12 +753,22 @@ function snkHide() { clearTimeout(SNK_T); $("snk").className = ""; }
 /* ═══ การ์ดเบิก (รูป JPEG กว้าง 1080) — ส่งเข้า Messenger พร้อมรูปที่ถ่ายตอนเบิก ═══
    แอพ Android รุ่นใหม่ = ShopAndroid.shareImage · iPhone = เมนูแชร์ (ไฟล์รูป) · แอพรุ่นเก่า = ส่งเป็นข้อความแทน */
 function advCardInfo(r, p, more) {
-  var o = { name: r.name, id: r.id, amt: p.amount, day: thShort(r.date) + " " + (ymd(r.date).y + 543), time: p.time || nowHM(), payer: p.payer || "", note: p.note || "", photo: p.photo || "" };
+  var o = { name: r.name, id: r.id, amt: p.amount, day: thShort(r.date) + " " + (ymd(r.date).y + 543), time: p.time || (more ? nowHM() : ""), payer: p.payer || "", note: p.note || "", photo: p.photo || "" };
   if (r.per && BOOT && BOOT.period && r.date >= BOOT.period.from && r.date <= BOOT.period.to)
     o.per = { lb: perLabel(BOOT.period.from, BOOT.period.to), pay: r.per.pay, adv: r.per.adv + more, net: r.per.net - more };
   return o;
 }
-function loadImg(u) { return new Promise(function (res) { if (!u) return res(null); var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = u; }); }
+function loadImg(u) {
+  return new Promise(function (res) {
+    if (!u) return res(null);
+    var m = /^https:\/\/drive\.google\.com\/thumbnail\?id=([\w-]+)/.exec(u);
+    var plain = function () { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = u; };
+    if (!m) return plain();
+    var im = new Image(); im.crossOrigin = "anonymous";
+    im.onload = function () { res(im); }; im.onerror = plain;
+    im.src = "https://lh3.googleusercontent.com/d/" + m[1] + "=w1080";
+  });
+}
 /* ตัดบรรทัดภาษาไทย (ไม่มีเว้นวรรค) — ตัดตามตัวอักษร ไม่ให้สระ/วรรณยุกต์หลุดไปต้นบรรทัด */
 function cardWrap(x, s, w) {
   var out = [], line = "", ch = String(s).replace(/\s+/g, " ").match(/.[ัิ-ฺ็-๎]*/g) || [];
@@ -825,9 +843,25 @@ function advCard(o) {
     x.fillStyle = "#f4f5f7"; x.fillRect(0, 0, W, H);
     rrect(x, 40, 40, W - 80, H - 80, 40); x.fillStyle = "#fff"; x.fill(); x.lineWidth = 2; x.strokeStyle = "#e5e7eb"; x.stroke();
     lay(true);
-    return c.toDataURL("image/jpeg", 0.88);
+    try { return c.toDataURL("image/jpeg", 0.88); } catch (e) { return c; }
   });
 }
+var CV_N = 0;
+function openCardv(r, a) {
+  var p = { amount: +a.amt, time: a.time || "", payer: a.payer || "", note: a.note || "", photo: a.photo || "" }, n = ++CV_N, img = null;
+  var text = advMsg(r, p, 0).split("\n").filter(function (l) { return l.indexOf("📒") !== 0; }).join("\n");
+  $("cvBox").innerHTML = "⏳ กำลังทำการ์ด…";
+  $("cardv").className = "on";
+  advCard(advCardInfo(r, p, 0)).then(function (u) {
+    if (n !== CV_N) return;
+    img = u;
+    $("cvBox").innerHTML = "";
+    if (typeof u === "string") { var im = new Image(); im.src = u; im.alt = ""; $("cvBox").appendChild(im); } else $("cvBox").appendChild(u);
+  }, function () { if (n === CV_N) $("cvBox").textContent = "❌ ทำการ์ดไม่ได้"; });
+  $("cvMsg").onclick = function () { if (!img) { toast("⏳ กำลังทำการ์ด…"); return; } shareCard(img, text); };
+  $("cvX").onclick = closeCardv;
+}
+function closeCardv() { CV_N++; $("cardv").className = ""; $("cvBox").innerHTML = ""; }
 function dataFile(u, name) {
   var b = atob(u.split(",")[1]), n = b.length, a = new Uint8Array(n);
   while (n--) a[n] = b.charCodeAt(n);
@@ -835,7 +869,7 @@ function dataFile(u, name) {
 }
 /* ส่งการ์ด — u = รูปที่วาดไว้แล้ว (วาดล่วงหน้าตอนแถบขึ้น iPhone จะได้เปิดเมนูแชร์ทันทีที่แตะ) · ไม่มีทางส่งรูป = ส่งข้อความ */
 function shareCard(u, text) {
-  if (!u) return shareMsg(text);
+  if (!u || typeof u !== "string") return shareMsg(text);
   try { if (typeof ShopAndroid.shareImage === "function") { if (ShopAndroid.shareImage(u.split(",")[1], "ส่งการ์ดเบิก")) return; } } catch (e) {}
   try {
     var f = dataFile(u, "เบิกเงิน.jpg");
@@ -877,17 +911,14 @@ function drawAdvp() {
   var notAdv = Math.max(0, x.came - x.people.filter(function (p) { return !noT(p.r.in); }).length);
   h += '<div class="psum"><div class="pn"><span>📒 เบิกรวม</span><b style="color:var(--adv)">' + baht(x.total) + "</b></div>"
     + '<div class="p3"><div><span>👥 คนที่เบิก</span><b>' + nP + ' คน</b></div><div><span>🧾 จำนวนครั้ง</span><b>' + x.list.length + ' ครั้ง</b></div><div><span>🙂 มาแต่ไม่เบิก</span><b>' + notAdv + " คน</b></div></div>";
-  var pk = Object.keys(x.payers), bk = Object.keys(x.br).sort();
-  if (pk.length) h += '<div class="apay">🙋 ผู้จ่าย: ' + pk.map(function (k) { return esc(k) + " <b>" + baht(x.payers[k].amt) + "</b>" + (x.payers[k].n > 1 ? " (" + x.payers[k].n + " ครั้ง)" : ""); }).join(" · ") + "</div>";
-  if (bk.length > 1) h += '<div class="apay">📍 ' + bk.map(function (k) { return esc(k) + " <b>" + baht(x.br[k].amt) + "</b> (" + x.br[k].n + " คน)"; }).join(" · ") + "</div>";
   h += "</div>";
   if (!nP) { $("advp").innerHTML = h + '<div class="empty">' + (d.found ? "วันนี้ยังไม่มีใครเบิก" : "ไม่มีข้อมูลของวันนี้") + "</div></main>"; return bindAdvp(null); }
   h += '<button class="msg" id="aMsg">📤 ส่งสรุปเข้า Messenger</button>';
   // เรียงตามเวลา ทีละรายการ (13 พ.ย. ผู้ใช้เลือกแบบ B จากตัวอย่าง — แบบ A ตารางรายคน)
-  h += '<div class="atb">' + x.list.map(function (o) {
+  h += '<div class="atb">' + x.list.map(function (o, j) {
     var a = o.a, meta = [a.payer ? "ผู้จ่าย " + a.payer : "", a.note].filter(Boolean).join(" · ");
-    return '<button class="atl" data-pid="' + esc(o.r.id) + '"><span class="tm2">' + esc(a.time || "–") + '</span><span class="nm2"><b>' + esc(o.r.name) + "</b>" + (meta ? "<small>" + esc(meta) + "</small>" : "") + "</span>"
-      + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : "") + '<span class="r">' + baht(a.amt) + "</span></button>";
+    return '<button class="atl" data-card="' + j + '"><span class="tm2">' + esc(a.time || "–") + '</span><span class="nm2"><b>' + esc(o.r.name) + "</b>" + (meta ? "<small>" + esc(meta) + "</small>" : "") + "</span>"
+      + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy">' : "") + '<span class="r">' + baht(a.amt) + "</span></button>";
   }).join("") + "</div>";
   $("advp").innerHTML = h + "</main>";
   bindAdvp(x);
@@ -898,9 +929,8 @@ function bindAdvp(x) {
   $("aNext").onclick = function () { if (CUR < TODAY()) { CUR = addDays(CUR, 1); drawAdvp(); loadDay(); } };
   if (x && $("aMsg")) $("aMsg").onclick = function () { shareMsg(advSumMsg(x)); };
   $("advp").onclick = function (e) {
-    if (e.target.closest("[data-zoom]")) return;
-    var b = e.target.closest("[data-pid]");
-    if (b) openPerson(b.getAttribute("data-pid"));
+    var b = e.target.closest("[data-card]");
+    if (b && x) { var o = x.list[+b.getAttribute("data-card")]; if (o) openCardv(o.r, o.a); }
   };
 }
 function advSumMsg(x) {
