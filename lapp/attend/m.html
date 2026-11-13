@@ -206,6 +206,11 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .ar i{font-style:normal;font-size:.86rem;font-weight:500;color:var(--tx);overflow-wrap:anywhere}
 .ar img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none}
 .ar .go{color:var(--mu);flex:none}
+.ar .ae{width:44px;height:44px;border-radius:8px;flex:none;border:1px solid var(--bd);background:var(--card);font-size:1rem;display:flex;align-items:center;justify-content:center;padding:0}
+.dsh3{display:flex;align-items:center;gap:8px}
+.dsh3 span{flex:1;min-width:0}
+.d1 .tb{font-size:1.02rem;padding:4px 12px}
+.d1 .tb .fl{color:var(--warn)}
 .da{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .sb{height:38px;border-radius:12px;border:1px solid var(--bd);background:var(--in);font-weight:700;font-size:.9rem}
 .sb.adv{background:var(--ac2);border-color:transparent;color:var(--acT)}
@@ -269,6 +274,14 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 #zm{position:fixed;inset:0;z-index:70;background:#000;display:none;align-items:center;justify-content:center}
 #zm.on{display:flex}
 #zm img{max-width:100%;max-height:100%}
+/* บังคับอัปเดต — ล็อกทั้งจอจนได้รุ่นใหม่ */
+#upd{position:fixed;inset:0;z-index:95;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center}
+#upd.on{display:flex}
+#upd .sp{width:44px;height:44px;border-radius:50%;border:4px solid var(--bd);border-top-color:var(--ac);animation:updsp 1s linear infinite}
+@keyframes updsp{to{transform:rotate(360deg)}}
+#upd b{font-size:1.2rem;font-weight:700}
+#upd small{color:var(--mu);font-weight:500;font-size:.9rem;line-height:1.6}
+#upd button{margin-top:14px;height:44px;padding:0 18px;border-radius:12px;border:1px solid var(--bd);background:var(--card);font-weight:600;font-size:.9rem;color:var(--mu)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);z-index:80;background:#111827;color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:.92rem;
  opacity:0;transition:all .2s;pointer-events:none;max-width:92vw;text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%)}
@@ -291,6 +304,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 <div id="person"></div>
 <div id="advp"></div>
 <div id="snk"></div>
+<div id="upd"><div class="sp"></div><b>⬇️ มีแอพรุ่นใหม่</b><small id="updTx">กำลังอัปเดต… รอสักครู่</small><button id="updSkip" style="display:none">ใช้รุ่นเดิมไปก่อน</button></div>
 <div id="cardv"><div class="cv" id="cvBox"></div><div class="cb"><button class="msg" id="cvMsg">📤 ส่ง Messenger</button></div></div>
 <div id="mask"></div>
 <div class="sheet" id="sheet"></div>
@@ -533,16 +547,18 @@ function editAdvGuard(r, a) {
   if (!a) return;
   if (!rowPending(r)) return advForm(r, a);
   // รหัสรายการในเครื่องกับบนเว็บอาจไม่ตรงกันจนกว่าจะส่งเสร็จ — รอส่งเสร็จก่อน แล้วหารายการเดิมจากข้อมูลใหม่ (13 พ.ย. ผู้ใช้ให้เอากล่องเตือนออก)
-  var n = ++WAIT_N, t0 = Date.now(), k = (r.advs || []).indexOf(a);
+  var n = ++WAIT_N, t0 = Date.now(), k = (r.advs || []).indexOf(a), f0 = FORM;   // f0 = หน้าต่างวัน (ดูอย่างเดียว) ที่เปิดอยู่ตอนแตะ
   toast("⏳ กำลังส่งขึ้นเว็บ… เดี๋ยวเปิดให้เอง");
   try { LAPP.sync().catch(function () {}); } catch (e) {}
   (function tick() {
-    if (n !== WAIT_N || FORM || $("sheet").classList.contains("on")) return;   // แตะอย่างอื่นไปแล้ว = เลิกรอ
+    if (n !== WAIT_N || FORM !== f0 || (!f0 && $("sheet").classList.contains("on"))) return;   // แตะอย่างอื่นไปแล้ว = เลิกรอ
     if (rowPending(r)) {
       if (Date.now() - t0 > 60e3) { toast("📶 ยังส่งขึ้นเว็บไม่ได้ — ต่อเน็ตแล้วลองใหม่", true); return; }
       return setTimeout(tick, 1000);
     }
-    rowOf(r.id, r.date).then(function (r2) {
+    var p = NEED_REDRAW ? refresh() : Promise.resolve();   // ข้อมูลในจอยังเป็นของก่อนส่ง = โหลดใหม่ก่อน
+    if (f0 && f0.view) closeSheet();
+    p.then(function () { return rowOf(r.id, r.date); }).then(function (r2) {
       if (n !== WAIT_N || FORM || !r2) return;
       var L = r2.advs || [], same = function (x) { return +x.amt === +a.amt && (x.time || "") === (a.time || "") && (x.note || "") === (a.note || "") && (x.payer || "") === (a.payer || ""); };
       var a2 = L.filter(same)[0] || (L[k] && +L[k].amt === +a.amt ? L[k] : null);
@@ -559,6 +575,70 @@ function bellPaint() {
   b.setAttribute("aria-label", el.textContent || "");
 }
 new MutationObserver(bellPaint).observe($("lappSt"), { attributes: true, childList: true, characterData: true, subtree: true });
+/* ═══ บังคับอัปเดต (13 พ.ย. ผู้ใช้สั่ง "มีรุ่นใหม่ให้บังคับอัปเดต ไม่อัปใช้งานไม่ได้") ═══
+   เช็คชุดหน้าแอพบนเว็บ (a/manifest.json — Android กับ iPhone รุ่นเดียวกัน) ตอนเปิดแอพ · กลับเข้าแอพ · ทุก 10 นาที
+   ใหม่กว่าที่ใช้อยู่ = รอให้ฟอร์ม/การบันทึกเสร็จก่อน แล้วล็อกจอ "กำลังอัปเดต" — Android สั่ง webCheck (ตัวแอพโหลด+ตรวจลายเซ็น+สลับหน้า) · iPhone สั่ง service worker
+   อัปเดตไม่ได้นาน 3 นาที (ไม่มีเน็ต/ชุดเสีย) = ขึ้นปุ่ม "ใช้รุ่นเดิมไปก่อน" (ถึงเปิดแอพใหม่) — กันแอพใช้ไม่ได้ทั้งร้านถ้าชุดบนเว็บมีปัญหา */
+var UPD = { url: "https://mirssandmix-create.github.io/att3s/a/manifest.json", need: "", lock: false, t0: 0, skip: false, last: 0, n: 0 };
+function vnum(v) { return (String(v || "").replace(/\D/g, "") + "0000000000000000").slice(0, 16); }
+function appVer() { try { return JSON.parse(ShopAndroid.link()).version || ""; } catch (e) { return ""; } }
+function myVer() {   // หน้าแอพที่ใช้อยู่: Android = ชุดที่โหลดมา (ไม่มี = หน้าในตัวแอพ = รุ่นแอพ) · iPhone = รุ่นเว็บแอพ
+  var a = appVer(), w = "";
+  try { if (typeof ShopAndroid.webVersion === "function") w = String(ShopAndroid.webVersion() || ""); } catch (e) {}
+  return vnum(w) > vnum(a) ? w : a;
+}
+function updHow() {
+  if (/^(127\.|localhost$|\[::1\])/.test(location.hostname)) return "";   // เครื่องทดสอบในคอม
+  try { if (typeof ShopAndroid.webCheck === "function") return "android"; } catch (e) {}
+  try { if (parent !== window && parent.navigator.serviceWorker && parent.navigator.serviceWorker.controller) return "ios"; } catch (e) {}
+  return "";
+}
+function updCheck(force) {
+  var how = updHow();
+  if (!how || UPD.skip || UPD.lock) return;
+  if (!force && Date.now() - UPD.last < 60e3) return;
+  UPD.last = Date.now();
+  fetch(UPD.url + "?t=" + Math.floor(Date.now() / 60e3), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (!j || !j.ver || vnum(j.ver) <= vnum(myVer())) return;
+    if (how === "android" && vnum(j.minApp) > vnum(appVer())) return;   // ชุดนี้ต้องใช้ไฟล์แอพใหม่กว่า — สลับไม่ได้ ไม่ล็อก
+    UPD.need = j.ver; updTry();
+  }).catch(function () {});
+}
+function updTry() {
+  if (!UPD.need || UPD.lock || UPD.skip) return;
+  if ((FORM && !FORM.view) || BUSY || DLG) { setTimeout(updTry, 3000); return; }   // กำลังกรอก/บันทึก/ถามอยู่ = รอให้เสร็จก่อน (ไม่ทิ้งของที่กรอก)
+  UPD.lock = true; UPD.t0 = Date.now(); UPD.n = 0;
+  try { closeCardv(); $("zm").className = ""; snkHide(); if ($("sheet").classList.contains("on")) closeSheet(); if (PER) closePerson(); if (ADVP) closeAdvp(); } catch (e) {}
+  $("updTx").textContent = "กำลังอัปเดต… รอสักครู่"; $("updSkip").style.display = "none";
+  $("upd").className = "on";
+  updStep();
+}
+function updStep() {
+  if (!UPD.lock) return;
+  var how = updHow(), k = UPD.n++, late = Date.now() - UPD.t0 > 180e3;
+  if (late) { $("updTx").textContent = "📶 อัปเดตไม่ได้ — เช็คอินเทอร์เน็ต แล้วรอสักครู่"; $("updSkip").style.display = ""; }
+  if (how === "android") {
+    // ตัวแอพโหลด+ตรวจชุดใหม่ แล้วโหลดหน้าใหม่เอง (หน้าว่างแล้ว) — เรียกห่าง ๆ (เรียกถี่ = ขึ้นข้อความซ้ำ)
+    if ([0, 2, 5, 9].indexOf(k) >= 0 || (k > 9 && k % 8 === 0)) { try { ShopAndroid.webCheck(); } catch (e) {} }
+  } else if (how === "ios") {
+    try {
+      var sw = parent.navigator.serviceWorker;
+      sw.getRegistration().then(function (reg) {
+        if (!reg) return;
+        if (reg.waiting) {
+          if (!UPD.iosHook) { UPD.iosHook = true; sw.addEventListener("controllerchange", function () { parent.location.reload(); }); }
+          reg.waiting.postMessage("skip");
+        } else if (!reg.installing && k % 3 === 0) reg.update().catch(function () {});
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  setTimeout(updStep, 4000);
+}
+$("updSkip").onclick = function () { UPD.skip = true; UPD.lock = false; $("upd").className = ""; toast("ใช้รุ่นเดิมไปก่อน — ปิดแอพแล้วเปิดใหม่ตอนมีเน็ต จะอัปเดตเอง"); };
+document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") updCheck(); });
+setInterval(function () { updCheck(true); }, 10 * 60e3);
+setTimeout(function () { updCheck(true); }, 2500);
+window.updCheck = updCheck;
 $("bell").onclick = function () {
   if (/ bad/.test(" " + $("lappSt").className)) return showFails(true);
   toast("⏳ " + ($("lappSt").textContent || "").replace(/^⏳\s*/, "") + " — มีเน็ตแอพส่งเอง");
@@ -585,10 +665,10 @@ function backSheet() {
 window.appBackInner = function () {
   if ($("zm").className === "on") { $("zm").className = ""; return true; }
   if (DLG) { dlgDone(false); return true; }
+  if ($("cardv").className === "on") { closeCardv(); return true; }
   if ($("sheet").classList.contains("on")) { backSheet(); return true; }
   if (PER) { closePerson(); return true; }
   if ($("snk").className === "on") { snkHide(); return true; }
-  if ($("cardv").className === "on") { closeCardv(); return true; }
   if (ADVP) { closeAdvp(); return true; }
   return false;
 };
@@ -1160,20 +1240,22 @@ function dayBody(r) {
   var late = r.fine && r.fine.late, early = r.fine && r.fine.early, t = "";
   if (!noT(r.in) && noT(r.out)) t = 'เข้า <span' + (late ? ' class="fl"' : "") + ">" + esc(r.in) + "</span>";
   else if (!noT(r.in) || !noT(r.out)) t = "<span" + (late ? ' class="fl"' : "") + ">" + esc(r.in || "--:--") + "</span> – <span" + (early ? ' class="fl"' : "") + ">" + esc(r.out || "--:--") + "</span>";
-  var h = '<div class="d1"><span class="tt">' + (t || stTag(r)) + "</span>" + (r.hrs ? '<span class="hr">' + r.hrs + " ชม.</span>" : "")
+  // เวลา = กล่องแตะแก้ (แทนปุ่ม "แก้เวลา") · ไม่มีเวลา = กล่อง --:-- ให้แตะใส่
+  var h = '<div class="d1"><button class="tb" data-act="edit"><span class="tt">' + (t || "--:-- – --:--") + "</span></button>" + (r.hrs ? '<span class="hr">' + r.hrs + " ชม.</span>" : "")
     + (r.pay ? '<b class="dp"><small>ค่าแรง</small>' + baht(r.pay) + "</b>" : "") + "</div>";
-  var f = r.fine || {}, tags = (t ? stTag(r) : "") + (f.late ? '<span class="tg fine">⏰ สาย −' + f.late + "</span>" : "") + (f.early ? '<span class="tg fine">🏃 เลิกก่อน −' + f.early + "</span>" : "")
+  var f = r.fine || {}, tags = (r.status && !/ปกติ|สาย/.test(r.status) ? stTag(r) : "") + (f.late ? '<span class="tg fine">⏰ สาย −' + f.late + "</span>" : "") + (f.early ? '<span class="tg fine">🏃 เลิกก่อน −' + f.early + "</span>" : "")
     + (r.tip ? '<span class="tg pay">ทิป ' + baht(r.tip) + "</span>" : "") + (r.branch ? '<span class="tg">📍 ' + esc(r.branch) + "</span>" : "");
   if (tags) h += '<div class="d2">' + tags + "</div>";
   if (r.note) h += '<div class="dn">📝 ' + esc(r.note) + "</div>";
   (r.advs || []).forEach(function (a, k) {
     var meta = [a.time, a.payer].filter(Boolean).join(" · ");
-    h += '<button class="ar" data-act="aedit" data-k="' + k + '"><span class="at"><b>เบิก ' + baht(a.amt) + "</b>" + (meta ? "<small>" + esc(meta) + "</small>" : "")
-      + (a.note ? "<i>" + esc(a.note) + "</i>" : "") + "</span>" + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : "") + '<span class="go">›</span></button>';
+    // แตะแถว = การ์ดเบิก · ✏️ = แก้รายการ (เหมือนหน้าแรก)
+    h += '<div class="ar" data-act="acard" data-k="' + k + '"><span class="at"><b>เบิก ' + baht(a.amt) + "</b>" + (meta ? "<small>" + esc(meta) + "</small>" : "")
+      + (a.note ? "<i>" + esc(a.note) + "</i>" : "") + "</span>" + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : "")
+      + '<button class="ae" data-act="aedit" data-k="' + k + '" aria-label="แก้รายการเบิก">✏️</button></div>';
   });
   return h;
 }
-function dayActs() { return '<div class="da"><button class="sb adv" data-act="adv">💸 เบิก</button><button class="sb" data-act="edit">✏️ แก้เวลา</button></div>'; }
 function num(n) { return baht(n).replace("฿", ""); }
 /* วัดหลังโชว์ (openPerson ใส่ class "on" หลัง drawPerson): หัวตารางค้างใต้หัวหน้า (สูงตามตัวหนังสือ/ชื่อยาว)
    + ย่อตัวหนังสือทั้งตารางทีละนิดจนเลขไม่ล้นช่อง (จอแคบ/ตัวหนังสือใหญ่/ยอดหลักหมื่น — ล้นแล้วเลขทับกัน = อ่านเงินผิด) */
@@ -1205,15 +1287,15 @@ function personTable(rows, s) {
     var n = dayNum(r.date), f = r.fine || {}, off = noT(r.in) && noT(r.out), mk = r.note ? "📝" : "";
     var today = r.date === TODAY();
     h += '<button class="ptr' + (today ? " today" : "") + '" data-i="' + i + '" data-act="day"><span class="c0"><b>' + n.d + "</b>" + (today ? "วันนี้" : n.w) + (mk ? '<span class="mk">' + mk + "</span>" : "") + "</span>";
-    if (off) h += '<span class="cx">' + stTag(r) + "</span>";
-    else h += tcell(r.in, f.late) + tcell(r.out, f.early) + "<span>" + (r.hrs || '<span class="z">–</span>') + "</span>";
-    h += '<span class="n ' + (r.pay ? "g" : "z") + '">' + (r.pay ? num(r.pay) : "–") + '</span><span class="n ' + (r.adv ? "r" : "z") + '">' + (r.adv ? num(r.adv) : "–") + '</span><span class="go">›</span></button>';
+    if (off) h += '<span class="cx" data-act="pedit">' + stTag(r) + "</span>";
+    else h += tcell(r.in, f.late) + tcell(r.out, f.early) + '<span data-act="pedit">' + (r.hrs || '<span class="z">–</span>') + "</span>";
+    h += '<span data-act="pedit" class="n ' + (r.pay ? "g" : "z") + '">' + (r.pay ? num(r.pay) : "–") + '</span><span class="n ' + (r.adv ? "r" : "z") + '">' + (r.adv ? num(r.adv) : "–") + '</span><span class="go">›</span></button>';
   });
   h += '<div class="ptf"><span class="c0">รวม</span><span class="cw">ทำงาน ' + (s.work || 0) + ' วัน</span><span>' + (s.hrs || 0) + "</span>"
     + '<span class="n g">' + num(s.pay) + '</span><span class="n r">' + num(s.adv) + "</span><span></span></div>";
   return h + "</div>";
 }
-function tcell(t, warn) { return noT(t) ? '<span class="z">–</span>' : "<span" + (warn ? ' class="fl"' : "") + ">" + esc(t) + "</span>"; }
+function tcell(t, warn) { return noT(t) ? '<span class="z" data-act="pedit">–</span>' : '<span data-act="pedit"' + (warn ? ' class="fl"' : "") + ">" + esc(t) + "</span>"; }
 /* แถวในหน้าคนไม่มียอดงวด (per) — เอาจากหน้าวันถ้าเป็นวันเดียวกัน (เตือนเบิกเกิน) */
 function perRow(i) {
   var r = PER && (PER.data.rows || [])[+i];
@@ -1224,7 +1306,7 @@ function perRow(i) {
 function daySheet(i) {
   var r = perRow(i);
   if (!r) return;
-  openSheet("<h3>" + esc(thShort(r.date)) + " · " + esc(r.name || (PER.data.emp || {}).name || "") + '</h3><div class="dsh">' + dayBody(r) + dayActs() + "</div>");
+  openSheet('<h3 class="dsh3"><span>' + esc(thShort(r.date)) + " · " + esc(r.name || (PER.data.emp || {}).name || "") + '</span><button class="qa" data-act="adv">💸 เบิกเงิน</button></h3><div class="dsh">' + dayBody(r) + "</div>");
   FORM = { view: true, dirty: function () { return false; } };   // เปิดอยู่ = ข้อมูลใหม่จากเว็บรอจนปิด (กันหน้าต่างโชว์ของเก่า) · ไม่มีอะไรให้ถามทิ้ง
   $("sheet").onclick = function (ev) {
     if (ev.target.closest("[data-zoom]")) return;   // รูป = ขยาย (ตัวจับกดทั้งหน้าทำให้)
@@ -1246,6 +1328,7 @@ function daySheet(i) {
     if (act === "adv") advForm(r, null);
     else if (act === "edit") editForm(r);
     else if (act === "aedit") editAdvGuard(r, (r.advs || [])[+b.getAttribute("data-k")]);
+    else if (act === "acard") { var ca = (r.advs || [])[+b.getAttribute("data-k")]; if (ca) openCardv(r, ca); }
   };
 }
 $("person").addEventListener("click", function (e) { e.stopPropagation(); onPersonClick(e); });
@@ -1256,6 +1339,7 @@ function onPersonClick(e) {
   if (!b || !cd || !PER) return;
   var act = b.getAttribute("data-act"), i = cd.getAttribute("data-i");
   if (act === "day") daySheet(i);
+  if (act === "pedit") { var r = perRow(i); if (r) editForm(r); }
 }
 
 /* ═══ ส่งไม่ผ่าน ═══ */

@@ -44,7 +44,7 @@ window.appIdle=function(){try{
  return !on('sheet')&&!on('dlg')&&!on('person')&&!on('zm');
 }catch(e){return false}};
 /* ตัวแอพได้ชีตชุดใหม่ / กลับเข้าแอพ → ให้หน้าถามสถานะเลย (ไม่ต้องรอรอบ 3 วิ) */
-window.appChanged=function(){try{const w=W();if(w.LAPP&&w.LAPP.poll)w.LAPP.poll()}catch(e){}};
+window.appChanged=function(){try{const w=W();if(w.LAPP&&w.LAPP.poll)w.LAPP.poll();if(w.updCheck)w.updCheck()}catch(e){}};
 /* กดแจ้งเตือน: fail = เปิดรายการส่งไม่ผ่าน · link = หน้าวางลิงก์ใหม่ · pclink = คอมส่งลิงก์เจ้าของมาทางสาย USB → หน้า setup ตรวจกับเว็บเลย */
 window.appOpen=function(v){
  if(v==='link'){goSetup();return}
