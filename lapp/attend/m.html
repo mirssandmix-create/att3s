@@ -19,7 +19,7 @@ var WRITES = ["time.saveRows", "time.addAdv", "time.delAdv", "time.editAdv", "ti
 <script src="engine-boot.js"></script>
 <script src="../client.js"></script>
 <style>
-:root{--bg:#f4f5f7;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--in:#f9fafb;--ac:#c2410c;--ac2:#fff7ed;--acT:#9a3412;
+:root{--bg:#f4f5f7;--card:#fff;--tx:#111827;--mu:#5b6270;--bd:#e5e7eb;--in:#f9fafb;--ac:#c2410c;--ac2:#fff7ed;--acT:#9a3412;
  --pay:#15803d;--payBg:#f0fdf4;--adv:#b91c1c;--advBg:#fef2f2;--warn:#92400e;--warnBg:#fffbeb;--sh:0 1px 2px rgba(0,0,0,.05);--fs:15px}
 :root[data-theme=dark]{--bg:#0d0f12;--card:#16191d;--tx:#e5e7eb;--mu:#9ca3af;--bd:#2a2f36;--in:#0f1215;--ac:#ea580c;--ac2:#2a1609;--acT:#fdba74;
  --pay:#4ade80;--payBg:#0f2418;--adv:#f87171;--advBg:#2a1212;--warn:#fcd34d;--warnBg:#2a2210;--sh:none}
@@ -42,37 +42,37 @@ button,[data-act]{cursor:pointer}   /* iPhone ส่งการแตะให�
 #lappSt.wait{color:var(--warn);background:var(--warnBg);border-color:transparent}
 #lappSt.bad{color:var(--adv);background:var(--advBg);border-color:transparent}
 #lappSt.off{color:var(--mu)}
-.ib{width:40px;height:40px;border-radius:12px;border:1px solid var(--bd);background:var(--card);font-size:1.2rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ib{width:44px;height:44px;border-radius:12px;border:1px solid var(--bd);background:var(--card);font-size:1.2rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .r2{display:flex;align-items:center;gap:8px;margin-top:8px}
 .day{flex:1;height:44px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700;font-size:1rem;position:relative;overflow:hidden}
 .day small{color:var(--ac);font-weight:700;margin-left:4px}
 .day input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
 .r3{display:flex;gap:8px;margin-top:8px}
-.srch{flex:1;height:42px;border-radius:999px;border:1px solid var(--bd);background:var(--card);padding:0 16px;outline:none}
+.srch{flex:1;height:44px;border-radius:999px;border:1px solid var(--bd);background:var(--card);padding:0 16px;outline:none}
 main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (กรองสาขา) = จอไม่เด้งขึ้นเอง */
 /* กล่องเลือกสาขา (แบบหน้าเวลาทำงานในคอม/เว็บ 8 พ.ย.) · ห้ามกระตุก: 4 ช่องคงที่ (ไม่มี "ไม่แยกสาขา" = ช่องว่าง ไม่ขยายกล่องอื่น)
    เลือกแล้วกรอบเข้มแบบเงาใน (ขนาดไม่เปลี่ยน) · ขนาดตัวหนังสือในกล่องไม่โตตามตัวหนังสือใหญ่ + บรรทัดล่างสูงตายตัว 2 บรรทัด = สูงเท่ากันทุกวัน */
 .brs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px;padding:1px;font-size:min(1rem,15px)}
 .brb{min-width:0;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:7px 6px;box-shadow:var(--sh);font-size:inherit}
-.brb .brT{font-size:.72em;line-height:1.25;color:var(--mu);font-weight:600}   /* จอแคบมาก = ขึ้นบรรทัดใหม่ (ขึ้นกับขนาดจอ ไม่ใช่ข้อมูล = ไม่กระตุก) */
+.brb .brT{font-size:.8em;line-height:1.25;color:var(--mu);font-weight:600}   /* จอแคบมาก = ขึ้นบรรทัดใหม่ (ขึ้นกับขนาดจอ ไม่ใช่ข้อมูล = ไม่กระตุก) */
 .brb .brN{font-size:1.1em;font-weight:700;white-space:nowrap}
-.brb .brN small{font-size:.655em;color:var(--mu);font-weight:500}
-.brb .brS{font-size:.68em;line-height:1.3;height:2.6em;overflow:hidden;color:var(--mu);font-weight:500}
+.brb .brN small{font-size:.75em;color:var(--mu);font-weight:500}
+.brb .brS{font-size:.8em;line-height:1.3;height:2.6em;overflow:hidden;color:var(--mu);font-weight:500}
 .brb .brS span{white-space:nowrap}
 .brb.on{border-color:var(--ac);box-shadow:inset 0 0 0 1px var(--ac);background:var(--ac2)}
 .brb.on .brT{color:var(--acT)}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:12px 12px 10px;margin-bottom:10px;box-shadow:var(--sh)}
-:root{--doneBg:#f1f5f9;--doneBd:#cbd5e1;--doneBar:#64748b;--offBg:#eff6ff;--offBd:#bfdbfe;--offBar:#3b82f6}
-:root[data-theme=dark]{--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}}
+:root{--acF:#c2410c;--doneTx:#fff;--doneBg:#f1f5f9;--doneBd:#cbd5e1;--doneBar:#64748b;--offBg:#eff6ff;--offBd:#bfdbfe;--offBar:#3b82f6}
+:root[data-theme=dark]{--doneTx:#0d0f12;--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--doneTx:#0d0f12;--doneBg:#1c232c;--doneBd:#334155;--doneBar:#94a3b8;--offBg:#0f1a2e;--offBd:#1e3a5f;--offBar:#3b82f6}}
 .card.done{background:var(--doneBg);border-color:var(--doneBd);box-shadow:inset 4px 0 0 var(--doneBar)}
 .card.off{background:var(--offBg);border-color:var(--offBd);box-shadow:inset 4px 0 0 var(--offBar)}
 .card.done .b.ed,.card.off .b.ed{background:var(--card)}
 .tag{flex:none;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;align-self:center}
-.tag.done{background:var(--doneBar);color:#fff}
+.tag.done{background:var(--doneBar);color:var(--doneTx)}
 .ch{display:flex;align-items:flex-start;gap:8px}
 .nm{flex:1;font-size:1.08rem;font-weight:700;line-height:1.35}
-.nm .id{font-size:.78rem;color:var(--mu);font-weight:500;margin-left:4px}
+.nm .id{font-size:.8rem;color:var(--mu);font-weight:500;margin-left:4px}
 .nm .go{font-size:.8rem;color:var(--mu);margin-left:2px}
 .st{flex:none;font-size:.8rem;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--in);border:1px solid var(--bd);white-space:nowrap}
 .st.ok{background:var(--payBg);color:var(--pay);border-color:transparent}
@@ -85,9 +85,9 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 /* 13 พ.ย. ผู้ใช้ขอ: ปุ่มเบิกเล็กมุมขวาบน (แทนป้ายสถานะ) · แตะเวลาเข้า/ออก = แก้เวลา (แทนปุ่มใหญ่ 2 ปุ่ม) */
 /* สถานะ (ปกติ/มาสาย/ลา…) + เลิกงาน — ป้ายเล็กใต้ชื่อ (13 พ.ย. ผู้ใช้เลือก "ข้างล่าง") */
 .stl{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
-.stl .st,.stl .tag{font-size:.72rem;padding:1px 8px;font-weight:600}
-.qa{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);background:var(--ac2);color:var(--acT);font:inherit;font-weight:700;font-size:.9rem;white-space:nowrap}
-.tb{border:1px solid var(--bd);background:var(--in);border-radius:10px;padding:3px 10px;font:inherit;color:var(--mu);font-weight:500;font-size:.9rem}
+.stl .st,.stl .tag{font-size:.8rem;padding:1px 8px;font-weight:600}
+.qa{flex:none;height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);background:var(--ac2);color:var(--acT);font:inherit;font-weight:700;font-size:.9rem;white-space:nowrap}
+.tb{display:inline-flex;align-items:center;gap:4px;min-height:44px;border:1px solid var(--bd);background:var(--in);border-radius:10px;padding:3px 12px;font:inherit;color:var(--mu);font-weight:500;font-size:.9rem}
 .tm b{color:var(--tx);font-weight:700;font-size:1rem}
 .tm .fl{color:var(--warn)}
 .mo{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;font-size:.88rem}
@@ -102,13 +102,13 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 .al{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px dashed var(--bd);background:var(--advBg);border-radius:12px;padding:6px 10px;font-size:.9rem}
 .al b{color:var(--adv);font-weight:700}
 .al .m{flex:1;color:var(--mu);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.al img,.al .noimg{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none}
+.al img,.al .noimg{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none}
 .al .noimg{display:flex;align-items:center;justify-content:center;background:var(--in);font-size:.9rem}
 /* 13 พ.ย. ผู้ใช้ขอ: แตะแถวแดง = การ์ดเบิก · ปุ่ม ✏️ ข้างรูป = แก้รายการ */
-.al .ae{width:36px;height:36px;border-radius:8px;flex:none;border:1px solid var(--bd);background:var(--card);font-size:.95rem;display:flex;align-items:center;justify-content:center;padding:0}
+.al .ae{width:44px;height:44px;border-radius:8px;flex:none;border:1px solid var(--bd);background:var(--card);font-size:.95rem;display:flex;align-items:center;justify-content:center;padding:0}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .b{height:46px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700;font-size:.98rem}
-.b.adv{background:var(--ac);border-color:var(--ac);color:#fff}
+.b.adv{background:var(--acF);border-color:var(--acF);color:#fff}
 .b.ed{background:var(--in)}
 .empty{text-align:center;color:var(--mu);padding:40px 10px;font-weight:500}
 .load{text-align:center;color:var(--mu);padding:60px 16px;font-weight:500}
@@ -133,7 +133,7 @@ main{padding:10px 12px;min-height:100vh}   /* หน้าสั้นลง (�
 .selw select.in{-webkit-appearance:none;appearance:none;padding-right:38px}
 summary b{color:var(--tx);font-weight:700}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.chip{border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:600;font-size:.92rem}
+.chip{min-height:44px;border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:600;font-size:.92rem}
 .chip.on{background:var(--ac2);border-color:var(--ac);color:var(--acT)}
 .perbox{margin-top:10px;background:var(--in);border:1px solid var(--bd);border-radius:14px;padding:8px 12px;font-size:.88rem;font-weight:500;color:var(--mu)}
 .perbox b{color:var(--tx);font-weight:700}
@@ -143,11 +143,11 @@ summary b{color:var(--tx);font-weight:700}
 .ph label.cam img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ph label.cam .re{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:3px 10px;font-size:.8rem}
 .ph input{display:none}
-.lnk{display:inline-block;margin-top:8px;color:var(--mu);font-size:.85rem;font-weight:600;text-decoration:underline;background:none;border:0;padding:0}
+.lnk{display:inline-flex;align-items:center;min-height:44px;margin-top:2px;color:var(--mu);font-size:.85rem;font-weight:600;text-decoration:underline;background:none;border:0;padding:0}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mini{display:flex;gap:6px;margin-top:6px}
-.mini button{flex:1;height:34px;border-radius:10px;border:1px solid var(--bd);background:var(--card);font-size:.82rem;font-weight:600}
-.save{width:100%;height:54px;margin-top:18px;border:0;border-radius:16px;background:var(--ac);color:#fff;font-weight:700;font-size:1.08rem}
+.mini button{flex:1;height:44px;border-radius:10px;border:1px solid var(--bd);background:var(--card);font-size:.82rem;font-weight:600}
+.save{width:100%;height:54px;margin-top:18px;border:0;border-radius:16px;background:var(--acF);color:#fff;font-weight:700;font-size:1.08rem}
 .save:disabled{opacity:.55}
 .del{width:100%;height:46px;margin-top:10px;border:1px solid var(--bd);border-radius:14px;background:transparent;color:var(--adv);font-weight:700}
 .hint{font-size:.8rem;color:var(--mu);font-weight:500;margin-top:6px}
@@ -163,7 +163,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 #person.on{display:block}
 .ptop{position:sticky;top:0;background:var(--bg);padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;gap:10px;align-items:center;z-index:2}
 .ptop h2{margin:0;font-size:1.15rem;font-weight:700;flex:1;line-height:1.3}
-.ptop h2 small{display:block;font-size:.78rem;color:var(--mu);font-weight:500}
+.ptop h2 small{display:block;font-size:.8rem;color:var(--mu);font-weight:500}
 .dc{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:10px 12px;margin-bottom:8px}
 .dc .dh{display:flex;gap:8px;align-items:center}
 .dc .dh b{flex:1;font-weight:700}
@@ -171,10 +171,10 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .dc .b{height:40px;font-size:.9rem}
 /* หน้าคนแบบตาราง (8 พ.ย. ผู้ใช้เลือกแบบ B จากตัวอย่าง — เดิมการ์ดทุกวันมีปุ่มส้มใหญ่ 2 ปุ่ม ยาว/รก/หมายเหตุเบิกถูกตัด)
    หัวบอกยอดเหลือตลอด · งวด ‹ › แบบหน้าวัน · สรุปกล่องเดียว · ตารางทั้งงวด (หัวตารางค้างใต้หัวหน้า) · แตะวัน = หน้าต่างวันนั้น (ทุกอย่างของวัน + ปุ่ม) */
-.ptop h2 small b{font-weight:700;color:var(--tx)}
+.ptop h2 small b{font-weight:700;color:var(--tx);white-space:nowrap}
 .ptop h2 small b.neg{color:var(--adv)}
 .hbb2{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;max-width:40vw;height:44px;padding:0 12px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-size:.88rem;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden}
-.hbb2 small{font-size:.68rem;color:var(--mu);font-weight:500}
+.hbb2 small{font-size:.8rem;color:var(--mu);font-weight:500}
 .pper{display:flex;gap:8px;align-items:center}
 .pper .pl{flex:1;height:40px;display:flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700}
 .ib:disabled{opacity:.3}
@@ -183,10 +183,10 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .pn span{color:var(--mu);font-size:.88rem;font-weight:600}
 .pn b{font-size:1.6rem;font-weight:700;line-height:1.2}
 .pn b.neg{color:var(--adv)}
-.pnx{text-align:right;font-size:.75rem;color:var(--adv);font-weight:600;margin-top:-2px}
+.pnx{text-align:right;font-size:.8rem;color:var(--adv);font-weight:600;margin-top:-2px}
 .p3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
 .p3 div{background:var(--in);border-radius:12px;padding:6px 8px;min-width:0}
-.p3 span{display:block;font-size:.72rem;color:var(--mu);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p3 span{display:block;font-size:.8rem;color:var(--mu);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .p3 b{font-size:1rem;font-weight:700;white-space:nowrap}
 .p3 .g{color:var(--pay)} .p3 .r{color:var(--adv)}
 .pc{margin-top:8px;font-size:.82rem;color:var(--mu);font-weight:500}
@@ -198,14 +198,14 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .d1 .dp small{color:var(--mu);font-weight:500;font-size:.72rem;margin-right:4px}
 .d2{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
 .d2 .st{font-size:.75rem;padding:1px 8px}
-.tg{font-size:.75rem;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--in);color:var(--mu);border:1px solid var(--bd);white-space:nowrap}
+.tg{font-size:.8rem;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--in);color:var(--mu);border:1px solid var(--bd);white-space:nowrap}
 .tg.fine{background:var(--warnBg);color:var(--warn);border-color:transparent}
 .tg.pay{background:var(--payBg);color:var(--pay);border-color:transparent}
 .dsh .dn{margin-top:6px}
 .ar{display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin-top:8px;border:0;background:var(--advBg);border-radius:12px;padding:8px 10px}
 .ar .at{flex:1;min-width:0;display:flex;flex-direction:column}
 .ar b{color:var(--adv);font-weight:700}
-.ar small{color:var(--mu);font-size:.78rem;font-weight:500}
+.ar small{color:var(--mu);font-size:.8rem;font-weight:500}
 .ar i{font-style:normal;font-size:.86rem;font-weight:500;color:var(--tx);overflow-wrap:anywhere}
 .ar img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none}
 .ar .go{color:var(--mu);flex:none}
@@ -220,11 +220,11 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .ptb{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh);font-size:.9rem}   /* ไม่ใส่ overflow (hidden = หัวตารางค้างผิดที่) — มุมโค้งใส่ที่หัว/แถวรวม · ตัวหนังสือในตารางเป็น em = personFit ย่อทั้งตาราง */
 .pth,.ptr,.ptf{display:grid;grid-template-columns:4.6em minmax(0,1fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1.25fr) minmax(0,1.15fr) .7em;align-items:center;column-gap:.4em;padding:0 8px 0 10px}
 .pth{position:sticky;top:var(--pth,0px);z-index:1;height:1.9em;background:var(--in);color:var(--mu);font-weight:600;border-bottom:1px solid var(--bd);border-radius:15px 15px 0 0}
-.pth>span{font-size:.8em}
+.pth>span{font-size:.9em}
 .pth .n,.ptr .n,.ptf .n{text-align:right}
 .ptr{width:100%;min-height:3.4em;border:0;border-bottom:1px solid var(--bd);background:none;text-align:left;font-size:1em;font-weight:600;white-space:nowrap}
 .ptr:active{background:var(--in)}
-.ptr .c0{color:var(--mu);font-size:.8em;font-weight:600}
+.ptr .c0{color:var(--mu);font-size:.9em;font-weight:600}
 .ptr .c0 b{color:var(--tx);font-size:1.3em;font-weight:700;margin-right:.25em}
 .ptr .cx{grid-column:span 3;overflow:hidden}
 .ptr .cx .st{font-size:.82em;padding:1px 8px}
@@ -234,9 +234,11 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .ptr.today .c0,.ptr.today .c0 b{color:var(--acT)}
 .ptr .go{color:var(--mu);font-size:.85em}
 .ptr .mk{font-size:.9em;margin-left:.2em}
+.ptr>span[data-act]{align-self:stretch;display:flex;align-items:center}
+.ptr>span.n[data-act]{justify-content:flex-end}
 .ptf{min-height:2.9em;background:var(--in);font-weight:700;white-space:nowrap;border-radius:0 0 15px 15px}
-.ptf .c0{font-size:.85em;color:var(--mu)}
-.ptf .cw{grid-column:span 2;font-size:.85em;color:var(--mu);font-weight:600}
+.ptf .c0{font-size:.9em;color:var(--mu)}
+.ptf .cw{grid-column:span 2;font-size:.9em;color:var(--mu);font-weight:600}
 .dsh .d1{margin-top:10px}
 .dsh .sb{height:46px;font-size:.98rem}
 /* หน้าสรุปเบิก (13 พ.ย.) — แตะกล่อง "เบิกวันนี้" ในหน้าวัน · ใช้หัว/สรุปแบบหน้าคน · แตะคน = หน้าคน (ซ้อนบน) */
@@ -256,7 +258,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 .atl .tm2{flex:none;width:3.2em;font-weight:700;color:var(--mu)}
 .atl .nm2{flex:1;min-width:0}
 .atl .nm2 b{display:block;font-weight:700}
-.atl .nm2 small{display:block;color:var(--mu);font-size:.78rem;font-weight:500;overflow-wrap:anywhere}
+.atl .nm2 small{display:block;color:var(--mu);font-size:.8rem;font-weight:500;overflow-wrap:anywhere}
 .atl .r{color:var(--adv);font-weight:700;white-space:nowrap}
 .atl img{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none}
 /* แถบหลังบันทึกเบิก: ✅ + ปุ่มส่ง Messenger (ไม่บังงาน หายเองใน 12 วิ) */
@@ -273,7 +275,7 @@ summary{padding:8px 0;font-weight:600;color:var(--mu)}
 #dlg .t{white-space:pre-line;font-weight:600;line-height:1.6}
 #dlg .bt{display:flex;gap:10px;margin-top:16px}
 #dlg .bt button{flex:1;height:46px;border-radius:14px;border:1px solid var(--bd);background:var(--card);font-weight:700}
-#dlg .bt .y{background:var(--ac);border-color:var(--ac);color:#fff}
+#dlg .bt .y{background:var(--acF);border-color:var(--acF);color:#fff}
 #zm{position:fixed;inset:0;z-index:70;background:#000;display:none;align-items:center;justify-content:center}
 #zm.on{display:flex}
 #zm img{max-width:100%;max-height:100%}
@@ -511,7 +513,7 @@ function card(r, i) {
     h += '<div class="advs">';
     advs.forEach(function (a, k) {
       h += '<div class="al" data-act="acard" data-k="' + k + '"><b>' + baht(a.amt) + '</b><span class="m">' + esc([a.time, a.payer, a.note].filter(Boolean).join(" · ") || "—") + "</span>"
-        + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : '<span class="noimg">📷</span>')
+        + (a.photo ? '<img src="' + esc(a.photo) + '" alt="" loading="lazy" data-zoom="' + esc(a.photo) + '">' : "")
         + '<button class="ae" data-act="aedit" data-k="' + k + '" aria-label="แก้รายการเบิก">✏️</button></div>';
     });
     h += "</div>";
